@@ -564,11 +564,18 @@ WordPress Staging / Prod  ロールバック可</pre>
 
         <li>
           <strong>5. WordPress 向け変換（Claude Code）</strong>
-          <p><code>prompts/convert-to-wp.md</code> に従い、HTML/CSS/JS をブロック・テーマ等へ変換します。</p>
+          <p>
+            <code>prompts/convert-to-wp.md</code> に従い、HTML/CSS/JS をブロック・テーマ等へ変換します。
+            <strong>変換そのものはコードを手書きせず、Claude Code への指示（プロンプト／設定）だけで進められます。</strong>
+            一方、intake・品質ゲート・デプロイなど一連のパイプラインは <code>wpaipublish.py</code> が必要で、Claude Code の設定だけでは完結しません。
+          </p>
           <ul class="usage-guide-items">
+            <li>手順: CLI で <code>convert prepare</code> → Claude Code で変換 → CLI で <code>convert mark-done</code></li>
+            <li>指示ファイル: <code>output/&lt;session&gt;/CLAUDE_INSTRUCTIONS.md</code></li>
+            <li>変換ルール: <code>prompts/convert-to-wp.md</code> · 自己検証: <code>prompts/validate-theme.md</code></li>
             <li>出力先: <code>output/&lt;session&gt;/wordpress/</code></li>
-            <li>自己検証: <code>prompts/validate-theme.md</code></li>
-            <li>完了マーク: <code>python wpaipublish.py convert mark-done &lt;session&gt;</code></li>
+            <li>任意: <code>ai route --stage wp_conversion --session &lt;id&gt; --auto-cli</code>（Claude CLI 自動実行）</li>
+            <li>Agent: <code>wp_conversion</code> は手動ステージ。完了後に <code>agent resume &lt;session&gt;</code></li>
             <li>参考実装: <code>docs/examples/hero-block/</code></li>
           </ul>
         </li>

@@ -69,15 +69,26 @@ const steps = [
     ],
   },
   {
-    title: '4. 変換〜品質ゲート',
-    body: 'Claude Code で WP 向け変換し、自動検査します。',
+    title: '4. Claude Code で変換',
+    body: 'WP向け変換はコード手書き不要。プロンプトに従い Claude Code が出力します。',
     items: [
-      'convert prepare / mark-done',
-      'quality run / visual run',
+      'convert prepare → CLAUDE_INSTRUCTIONS.md 生成',
+      'Claude Code で prompts/convert-to-wp.md を実行',
+      '出力: output/<session>/wordpress/',
+      '完了: convert mark-done <session>',
+      '注意: intake〜deploy 全体は CLI 必須（設定だけでは不可）',
     ],
   },
   {
-    title: '5. ステージング確認',
+    title: '5. 品質ゲート',
+    body: '自動検査のあとステージングへ進みます。',
+    items: [
+      'quality run / visual run',
+      'agent resume で手動ステージ後に再開可',
+    ],
+  },
+  {
+    title: '6. ステージング確認',
     body: 'ローカル Docker またはリモート staging へ反映します。',
     items: [
       'docker compose -f docker-compose.staging.yml up -d',
@@ -86,7 +97,7 @@ const steps = [
     ],
   },
   {
-    title: '6. 本番デプロイ',
+    title: '7. 本番デプロイ',
     body: '確認後に --confirm で本番反映します。',
     items: [
       'python wpaipublish.py deploy production <session> --confirm',
