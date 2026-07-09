@@ -159,7 +159,11 @@ def cmd_deploy(args: argparse.Namespace) -> int:
             bash_cmd.append("--confirm")
         return run_script(bash_cmd)
     if args.env == "staging":
-        return run_script(["bash", str(SCRIPTS / "deploy" / "deploy_staging.sh"), args.session_id])
+        # Windows / ローカル Docker 向け Python デプロイ（SSH不要）
+        cmd = [sys.executable, str(SCRIPTS / "deploy" / "deploy_staging_local.py"), args.session_id]
+        if args.dry_run:
+            cmd.append("--dry-run")
+        return run_script(cmd)
     cmd = ["bash", str(SCRIPTS / "deploy" / "deploy_production.sh"), args.session_id]
     if args.confirm:
         cmd.append("--confirm")
@@ -277,6 +281,7 @@ def main() -> int:
     p_deploy.add_argument("session_id")
     p_deploy.add_argument("--confirm", action="store_true")
     p_deploy.add_argument("--via-git", action="store_true", help="Gitベースデプロイ")
+    p_deploy.add_argument("--dry-run", action="store_true", help="ステージングのドライラン")
 
     p_rollback = sub.add_parser("rollback", help="ロールバック")
     p_rollback.add_argument("session_id")

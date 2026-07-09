@@ -113,7 +113,18 @@ python wpaipublish.py deploy staging <session-id>
 python wpaipublish.py deploy production <session-id> --confirm
 ```
 
-### 6. ステータス確認
+### 6. ローカルステージング（Docker）
+
+リモート WP がなくても完走できます。詳細は [docs/LOCAL_STAGING.md](docs/LOCAL_STAGING.md)。
+
+```bash
+docker compose -f docker-compose.staging.yml up -d
+# 初回のみ: bash scripts/local/bootstrap_wp.sh
+python wpaipublish.py deploy staging <session-id>
+# 確認: http://localhost:8088  /  管理画面 admin / admin1234
+```
+
+### 7. ステータス確認
 
 ```bash
 python wpaipublish.py status
@@ -150,6 +161,7 @@ python wpaipublish.py status
 ## ドキュメント
 
 - [利用手順パネル（UI）](docs/usage-guide.html) — アップロード画像と同デザインの詳細手順
+- [ローカルステージング](docs/LOCAL_STAGING.md) — Docker WordPress での確認
 - [拡張機能ガイド](docs/FEATURES.md)
 - [運用マニュアル](docs/OPERATIONS.md)
 - [ロールバック手順書](docs/ROLLBACK.md)

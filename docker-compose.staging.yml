@@ -1,0 +1,61 @@
+# WPAIPublisher — ローカル WordPress ステージング
+# 起動: docker compose -f docker-compose.staging.yml up -d
+# URL:  http://localhost:8088
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: rootpass
+    volumes:
+      - wpai_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  wordpress:
+    image: wordpress:6.7-php8.2-apache
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_DEBUG', true);
+        define('WP_DEBUG_LOG', true);
+    volumes:
+      - wpai_wp:/var/www/html
+      - ./staging/wp-content/themes/custom-theme:/var/www/html/wp-content/themes/custom-theme
+    depends_on:
+      db:
+        condition: service_healthy
+
+  wpcli:
+    image: wordpress:cli-php8.2
+    user: "33:33"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wpai_wp:/var/www/html
+      - ./staging/wp-content/themes/custom-theme:/var/www/html/wp-content/themes/custom-theme
+      - ./scripts/local:/scripts
+    depends_on:
+      wordpress:
+        condition: service_started
+    entrypoint: ["sleep", "infinity"]
+
+volumes:
+  wpai_db:
+  wpai_wp:

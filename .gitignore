@@ -15,6 +15,9 @@ output/*
 !output/.gitkeep
 deployments/*
 !deployments/.gitkeep
+staging/
+!staging/.gitkeep
+staging/app-password.txt
 
 # ナレッジベース（ベクトルインデックス）
 knowledge/vector_store/
