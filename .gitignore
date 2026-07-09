@@ -24,7 +24,8 @@ knowledge/vector_store/
 
 # Node.js
 node_modules/
-package-lock.json
+/package-lock.json
+!web/package-lock.json
 web/node_modules/
 web/.next/
 web/out/
