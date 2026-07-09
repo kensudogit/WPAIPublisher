@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>利用手順 — WPAIPublisher</title>
+  <style>
+    :root {
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --border: #e2e8f0;
+      --panel: rgba(255, 255, 255, 0.96);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at top left, rgba(124, 58, 237, 0.12), transparent 45%),
+        radial-gradient(ellipse at bottom right, rgba(79, 70, 229, 0.1), transparent 40%),
+        linear-gradient(160deg, #f8fafc 0%, #f5f3ff 50%, #eef2ff 100%);
+      padding: 2rem 1rem 3rem;
+    }
+
+    .page-label {
+      max-width: 420px;
+      margin: 0 auto 1rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .usage-guide-panel {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 12px 40px rgba(49, 46, 129, 0.15);
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .usage-guide-panel::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), #7c3aed);
+      z-index: 1;
+    }
+
+    .usage-guide-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.75rem 0.85rem;
+      background: rgba(255, 255, 255, 0.85);
+      border-bottom: 1px solid var(--border);
+      cursor: grab;
+    }
+
+    .usage-guide-header-text {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .usage-guide-header-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+
+    .usage-guide-header-text strong {
+      display: block;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .usage-guide-header-text strong::before {
+      content: "";
+      width: 4px;
+      height: 1.05em;
+      border-radius: 4px;
+      background: linear-gradient(180deg, var(--accent), #7c3aed);
+      display: inline-block;
+      margin-right: 0.45rem;
+      vertical-align: -0.15em;
+    }
+
+    .usage-guide-header-sub {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .usage-guide-drag-icon {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1;
+    }
+
+    .usage-guide-drag-hint {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .usage-guide-toggle {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--accent);
+      font-size: 0.82rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .usage-guide-toggle:hover {
+      background: var(--accent-soft);
+      border-color: rgba(79, 70, 229, 0.3);
+    }
+
+    .usage-guide-body {
+      max-height: min(82vh, 720px);
+      overflow-y: auto;
+      padding: 0.9rem 0.95rem 1rem;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(245, 243, 255, 0.35) 100%);
+      scrollbar-width: thin;
+      scrollbar-color: #94a3b8 transparent;
+    }
+
+    .usage-guide-body::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .usage-guide-body::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 999px;
+    }
+
+    .usage-guide-hero {
+      margin-bottom: 0.75rem;
+      padding: 0.85rem 0.9rem;
+      border-radius: 12px;
+      border: 1px solid rgba(79, 70, 229, 0.22);
+      background:
+        radial-gradient(ellipse at top right, rgba(124, 58, 237, 0.12), transparent 55%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(237, 233, 254, 0.88));
+    }
+
+    .usage-guide-hero-kicker {
+      margin: 0 0 0.35rem;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #7c3aed;
+    }
+
+    .usage-guide-hero-title {
+      margin: 0 0 0.35rem;
+      font-size: 0.92rem;
+      font-weight: 800;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      color: #1e1b4b;
+    }
+
+    .usage-guide-hero-lead {
+      margin: 0 0 0.55rem;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
+
+    .usage-guide-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .usage-guide-stack-pill {
+      padding: 0.18rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid rgba(79, 70, 229, 0.18);
+      background: rgba(255, 255, 255, 0.85);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #4338ca;
+      white-space: nowrap;
+    }
+
+    .usage-guide-featured {
+      margin-bottom: 0.75rem;
+      padding: 0.75rem 0.8rem;
+      border-radius: 10px;
+      border: 1px solid rgba(79, 70, 229, 0.35);
+      background: linear-gradient(135deg, rgba(237, 233, 254, 0.95), rgba(224, 231, 255, 0.85));
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+    }
+
+    .usage-guide-featured--architecture {
+      border-color: rgba(124, 58, 237, 0.4);
+      background: linear-gradient(135deg, rgba(237, 233, 254, 0.98), rgba(196, 181, 253, 0.35));
+    }
+
+    .usage-guide-featured--architecture .usage-guide-featured-badge {
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+    }
+
+    .usage-guide-featured--saas {
+      border-color: rgba(14, 165, 233, 0.35);
+      background: linear-gradient(135deg, rgba(224, 242, 254, 0.95), rgba(237, 233, 254, 0.75));
+    }
+
+    .usage-guide-featured--saas .usage-guide-featured-badge {
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    }
+
+    .usage-guide-featured-head {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .usage-guide-featured-head strong {
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.35;
+      color: #312e81;
+    }
+
+    .usage-guide-featured-badge {
+      flex-shrink: 0;
+      padding: 0.12rem 0.45rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .usage-guide-featured p {
+      margin: 0 0 0.35rem;
+      font-size: 0.8rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
+
+    .usage-guide-diagram {
+      margin: 0 0 0.75rem;
+      padding: 0;
+    }
+
+    .usage-guide-diagram figcaption {
+      margin: 0 0 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .usage-guide-diagram pre {
+      margin: 0;
+      padding: 0.65rem 0.7rem;
+      border-radius: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      background: #0f172a;
+      color: #c7d2fe;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.62rem;
+      line-height: 1.45;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .usage-guide-scroll-hint {
+      margin: 0 0 0.65rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.7);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-align: center;
+      color: var(--accent);
+    }
+
+    .usage-guide-steps {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .usage-guide-steps > li {
+      padding: 0.65rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.85);
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .usage-guide-steps > li:hover {
+      background: var(--accent-soft);
+      border-color: rgba(79, 70, 229, 0.2);
+    }
+
+    .usage-guide-steps strong {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .usage-guide-steps p {
+      margin: 0 0 0.35rem;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
+
+    .usage-guide-items {
+      margin: 0;
+      padding: 0 0 0 1.1rem;
+      list-style: disc;
+    }
+
+    .usage-guide-items li {
+      margin: 0.2rem 0;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .usage-guide-footer {
+      margin: 0.85rem 0 0;
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid rgba(79, 70, 229, 0.2);
+      background: linear-gradient(135deg, rgba(237, 233, 254, 0.8), rgba(224, 231, 255, 0.6));
+      font-size: 0.72rem;
+      color: #4338ca;
+      line-height: 1.5;
+    }
+
+    .usage-guide-panel.is-collapsed .usage-guide-body {
+      display: none;
+    }
+
+    .usage-guide-panel.is-collapsed .usage-guide-header {
+      border-bottom: none;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      background: rgba(79, 70, 229, 0.08);
+      padding: 0.05rem 0.25rem;
+      border-radius: 4px;
+      color: #3730a3;
+    }
+  </style>
+</head>
+<body>
+  <p class="page-label">WPAIPublisher · Usage Guide Panel</p>
+
+  <div class="usage-guide-panel is-expanded" id="panel" role="dialog" aria-label="利用手順" aria-modal="false">
+    <header class="usage-guide-header" id="header">
+      <div class="usage-guide-header-text">
+        <span class="usage-guide-drag-icon" aria-hidden>☰</span>
+        <div class="usage-guide-header-titles">
+          <strong>利用手順</strong>
+          <span class="usage-guide-header-sub">Architecture &amp; Ops</span>
+        </div>
+        <span class="usage-guide-drag-hint">ドラッグで移動</span>
+      </div>
+      <button type="button" class="usage-guide-toggle" id="toggle" aria-label="閉じる" aria-expanded="true">▼</button>
+    </header>
+
+    <div class="usage-guide-body">
+      <!-- Hero -->
+      <div class="usage-guide-hero">
+        <p class="usage-guide-hero-kicker">Portfolio-ready demo</p>
+        <h2 class="usage-guide-hero-title">WPAIPublisher AI → WordPress</h2>
+        <p class="usage-guide-hero-lead">
+          Codex / ChatGPT / Claude Code / Copilot の出力を、品質ゲート・Git CI/CD・RAG・自律エージェント経由で WordPress へ継続反映する再現可能なワークフローです。
+        </p>
+        <div class="usage-guide-stack" aria-label="Tech stack">
+          <span class="usage-guide-stack-pill">Python · CLI</span>
+          <span class="usage-guide-stack-pill">Claude Code</span>
+          <span class="usage-guide-stack-pill">WP-CLI · REST</span>
+          <span class="usage-guide-stack-pill">Playwright</span>
+          <span class="usage-guide-stack-pill">Git · Actions</span>
+          <span class="usage-guide-stack-pill">RAG · TF-IDF</span>
+        </div>
+      </div>
+
+      <!-- Architecture -->
+      <section class="usage-guide-featured usage-guide-featured--architecture" aria-label="パイプライン概要">
+        <div class="usage-guide-featured-head">
+          <span class="usage-guide-featured-badge">Architecture</span>
+          <strong>エンドツーエンド・パイプライン</strong>
+        </div>
+        <p>
+          AI 出力を <code>intake/</code> で受け取り、マルチ AI 変換 → 品質ゲート → ビジュアル回帰 → Git PR → ステージング → 本番までを一連で実行します。
+        </p>
+        <ul class="usage-guide-items">
+          <li>マルチ AI — ChatGPT · Codex · Claude Code · Copilot</li>
+          <li>品質ゲート — HTML · SEO · a11y · セキュリティ · パフォーマンス</li>
+          <li>Git CI/CD — PR · staging · main · ロールバック</li>
+          <li>Playwright — デスクトップ / モバイル画面比較</li>
+          <li>RAG — 過去変換パターンのベクトル再利用</li>
+          <li>Agent — <code>workflow/pipeline.yaml</code> による自律実行</li>
+        </ul>
+      </section>
+
+      <!-- Topology -->
+      <figure class="usage-guide-diagram" aria-label="Service topology">
+        <figcaption>Service topology（本番）</figcaption>
+        <pre>Codex / ChatGPT / Copilot
+    │ HTML · CSS · JS
+    ▼
+intake/incoming/          manifest.json
+    │ validate + RAG
+    ▼
+Claude Code 変換          prompts/convert-to-wp.md
+    │ output/&lt;session&gt;/
+    ▼
+品質ゲート + Playwright   quality_gates.json
+    │
+    ▼
+Git PR → staging → main   WP-CLI / REST / SCP
+    │
+    ▼
+WordPress Staging / Prod  ロールバック可</pre>
+      </figure>
+
+      <!-- Agent featured -->
+      <section class="usage-guide-featured usage-guide-featured--saas" aria-label="エージェント">
+        <div class="usage-guide-featured-head">
+          <span class="usage-guide-featured-badge">Agent</span>
+          <strong>自律実行（推奨フロー）</strong>
+        </div>
+        <p>
+          1 コマンドで intake → RAG → 変換準備 → 品質ゲート → PR → ステージングまで進行。手動介入が必要なステージでは一時停止します。
+        </p>
+        <ul class="usage-guide-items">
+          <li><code>python wpaipublish.py agent run &lt;session&gt;</code> — 開始</li>
+          <li><code>agent resume</code> — Claude Code 変換完了後に再開</li>
+          <li><code>agent resume --approve</code> — 本番デプロイ承認</li>
+          <li>中断: wp_conversion · deploy_review · deploy_production</li>
+        </ul>
+      </section>
+
+      <p class="usage-guide-scroll-hint">↓ セットアップ・変換・品質・デプロイの手順は下へ</p>
+
+      <ol class="usage-guide-steps">
+        <li>
+          <strong>1. 初回セットアップ</strong>
+          <p>依存関係と設定ファイルを用意します。API キーは <code>config/.env</code> のみに保存してください。</p>
+          <ul class="usage-guide-items">
+            <li><code>pip install -r requirements.txt</code></li>
+            <li><code>npm install &amp;&amp; npx playwright install chromium</code></li>
+            <li><code>cp config/*.example.yaml config/</code>（拡張子を調整）</li>
+            <li><code>cp config/.env.example config/.env</code> を編集</li>
+            <li>必須: <code>WP_STAGING_*</code> / 任意: <code>OPENAI_API_KEY</code> · <code>ANTHROPIC_API_KEY</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>2. ナレッジベース構築（RAG）</strong>
+          <p>プロンプト・ドキュメント・過去セッションをインデックスし、変換時に再利用します。</p>
+          <ul class="usage-guide-items">
+            <li><code>python wpaipublish.py knowledge index --rebuild</code></li>
+            <li>セッション追加: <code>knowledge index --session &lt;id&gt;</code></li>
+            <li>検索: <code>knowledge retrieve --session &lt;id&gt;</code></li>
+            <li>出力: <code>output/&lt;id&gt;/rag_context.md</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>3. AI 出力の投入（intake）</strong>
+          <p>Codex 等の成果物を所定形式で受け取ります。<code>manifest.json</code> は必須です。</p>
+          <ul class="usage-guide-items">
+            <li>配置: <code>intake/incoming/&lt;package&gt;/</code></li>
+            <li>参考: <code>intake/example/</code>（hero-section サンプル）</li>
+            <li>整形プロンプト: <code>prompts/prepare-intake.md</code></li>
+            <li>検証: <code>python wpaipublish.py intake validate intake/incoming/&lt;package&gt;</code></li>
+            <li>target.type: block · theme · page · template-part · custom-css</li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>4. 変換セッション作成</strong>
+          <p>Claude Code 向けの入力パッケージと指示ファイルを生成します。</p>
+          <ul class="usage-guide-items">
+            <li><code>python wpaipublish.py convert prepare intake/incoming/&lt;package&gt; --session-id my-session</code></li>
+            <li>生成: <code>output/my-session/source/</code> · <code>CLAUDE_INSTRUCTIONS.md</code></li>
+            <li>マルチ AI: <code>python wpaipublish.py ai route --stage wp_conversion --session my-session</code></li>
+            <li>プロバイダー確認: <code>python wpaipublish.py ai list</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>5. WordPress 向け変換（Claude Code）</strong>
+          <p><code>prompts/convert-to-wp.md</code> に従い、HTML/CSS/JS をブロック・テーマ等へ変換します。</p>
+          <ul class="usage-guide-items">
+            <li>出力先: <code>output/&lt;session&gt;/wordpress/</code></li>
+            <li>自己検証: <code>prompts/validate-theme.md</code></li>
+            <li>完了マーク: <code>python wpaipublish.py convert mark-done &lt;session&gt;</code></li>
+            <li>参考実装: <code>docs/examples/hero-block/</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>6. 品質ゲート</strong>
+          <p>HTML / SEO / アクセシビリティ / セキュリティ / パフォーマンスを自動検査します。blocking 失敗時はデプロイ不可です。</p>
+          <ul class="usage-guide-items">
+            <li><code>python wpaipublish.py quality run &lt;session&gt; --stage pr_merge</code></li>
+            <li>基本検証: <code>validate run &lt;session&gt;</code>（PHP 構文等）</li>
+            <li>設定: <code>config/quality-gates.yaml</code></li>
+            <li>結果: <code>output/&lt;session&gt;/quality_gates.json</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>7. ビジュアル回帰テスト</strong>
+          <p>Playwright でデスクトップ / モバイルの画面を比較します。初回はベースライン更新が必要です。</p>
+          <ul class="usage-guide-items">
+            <li>初回: <code>python wpaipublish.py visual run &lt;session&gt; --update</code></li>
+            <li>以降: <code>visual run &lt;session&gt; --env staging</code></li>
+            <li>保存先: <code>visual/baseline/</code> · <code>current/</code> · <code>diff/</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>8. Git PR &amp; CI/CD</strong>
+          <p>feature ブランチから staging へ PR。GitHub Actions が品質ゲートとビジュアルテストを実行します。</p>
+          <ul class="usage-guide-items">
+            <li><code>python wpaipublish.py git pr &lt;session&gt;</code></li>
+            <li>ブランチ: <code>wpai/&lt;session&gt;</code> → base: staging</li>
+            <li>CI: <code>.github/workflows/wpaipublisher-ci.yml</code></li>
+            <li>Secrets: <code>WP_STAGING_*</code> · <code>WP_PROD_*</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>9. ステージングデプロイ &amp; 確認</strong>
+          <p>必ずステージングで表示・動作を確認してから本番へ進みます。</p>
+          <ul class="usage-guide-items">
+            <li><code>python wpaipublish.py deploy staging &lt;session&gt;</code></li>
+            <li>Git 経由: <code>deploy staging &lt;session&gt; --via-git</code></li>
+            <li>確認: レスポンシブ · JS · 既存ページ影響 · コンソールエラー</li>
+            <li>レビュー: <code>prompts/deploy-review.md</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>10. 本番デプロイ</strong>
+          <p><code>--confirm</code> 必須。デプロイ前に自動バックアップが作成されます。</p>
+          <ul class="usage-guide-items">
+            <li><code>python wpaipublish.py deploy production &lt;session&gt; --confirm</code></li>
+            <li>Git: <code>git deploy production &lt;session&gt; --confirm</code></li>
+            <li>Agent: <code>agent resume &lt;session&gt; --approve</code></li>
+            <li>履歴: <code>deployments/history.jsonl</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>11. ロールバック</strong>
+          <p>障害時はバックアップまたは Git revert で復旧します。詳細は <code>docs/ROLLBACK.md</code>。</p>
+          <ul class="usage-guide-items">
+            <li>ファイル: <code>python wpaipublish.py rollback &lt;session&gt; production --confirm</code></li>
+            <li>Git: <code>git rollback &lt;session&gt; production --confirm</code></li>
+            <li>バックアップ: <code>deployments/backup-prod-*</code></li>
+            <li>キャッシュ: <code>wp cache flush</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>12. 運用ルール（必須）</strong>
+          <p>再現性と安全性のための固定ルールです。</p>
+          <ul class="usage-guide-items">
+            <li>本番への直接デプロイ禁止（ステージング必須）</li>
+            <li>manifest.json なしの intake は受け付けない</li>
+            <li>品質ゲート / ビジュアルテストをスキップしない</li>
+            <li>本番は <code>--confirm</code> または Agent <code>--approve</code> 必須</li>
+            <li>処理済み intake は <code>intake/processed/</code> へ移動</li>
+            <li>状態確認: <code>python wpaipublish.py status</code></li>
+          </ul>
+        </li>
+      </ol>
+
+      <p class="usage-guide-footer">
+        ▼▲ で開閉 · ヘッダーをドラッグして移動 · 詳細は docs/FEATURES.md · OPERATIONS.md · ROLLBACK.md を参照。
+      </p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var panel = document.getElementById('panel');
+      var toggle = document.getElementById('toggle');
+      var header = document.getElementById('header');
+      var expanded = true;
+
+      toggle.addEventListener('click', function () {
+        expanded = !expanded;
+        panel.classList.toggle('is-collapsed', !expanded);
+        panel.classList.toggle('is-expanded', expanded);
+        toggle.textContent = expanded ? '▼' : '▲';
+        toggle.setAttribute('aria-label', expanded ? '閉じる' : '開く');
+        toggle.setAttribute('aria-expanded', String(expanded));
+      });
+
+      // 簡易ドラッグ（デモ用）
+      var dragging = false;
+      var startX = 0, startY = 0, originLeft = 0, originTop = 0;
+
+      header.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('.usage-guide-toggle')) return;
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        var rect = panel.getBoundingClientRect();
+        originLeft = rect.left;
+        originTop = rect.top;
+        panel.style.position = 'fixed';
+        panel.style.margin = '0';
+        panel.style.left = originLeft + 'px';
+        panel.style.top = originTop + 'px';
+        header.setPointerCapture(e.pointerId);
+      });
+
+      header.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        panel.style.left = (originLeft + e.clientX - startX) + 'px';
+        panel.style.top = (originTop + e.clientY - startY) + 'px';
+      });
+
+      header.addEventListener('pointerup', function () {
+        dragging = false;
+      });
+    })();
+  </script>
+</body>
+</html>

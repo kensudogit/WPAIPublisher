@@ -149,6 +149,7 @@ python wpaipublish.py status
 
 ## ドキュメント
 
+- [利用手順パネル（UI）](docs/usage-guide.html) — アップロード画像と同デザインの詳細手順
 - [拡張機能ガイド](docs/FEATURES.md)
 - [運用マニュアル](docs/OPERATIONS.md)
 - [ロールバック手順書](docs/ROLLBACK.md)
