@@ -1,0 +1,75 @@
+# 品質ゲート設定
+# コピー: cp config/quality-gates.example.yaml config/quality-gates.yaml
+
+gates:
+  html:
+    enabled: true
+    blocking: true
+    rules:
+      require_doctype: false        # WPブロックはfragment可
+      require_lang: true
+      max_inline_styles: 10
+      forbidden_tags: [script, iframe]
+
+  seo:
+    enabled: true
+    blocking: false               # WARNING扱い
+    rules:
+      require_title: true
+      require_meta_description: true
+      require_h1: true
+      max_h1_count: 1
+      require_alt_on_images: true
+      require_canonical: false
+
+  accessibility:
+    enabled: true
+    blocking: true
+    rules:
+      wcag_level: AA
+      require_alt: true
+      require_form_labels: true
+      require_skip_link: false
+      color_contrast_ratio: 4.5
+    tools:
+      - axe                # @axe-core/cli (Node)
+      - pa11y              # pa11y (Node, optional)
+
+  security:
+    enabled: true
+    blocking: true
+    rules:
+      forbidden_functions: [eval, exec, system, shell_exec, passthru, base64_decode]
+      forbidden_patterns:
+        - '$_GET'
+        - '$_POST'
+        - 'innerHTML\s*='
+      require_escaping: true
+
+  performance:
+    enabled: true
+    blocking: false
+    rules:
+      max_css_size_kb: 100
+      max_js_size_kb: 50
+      max_inline_scripts: 3
+      require_lazy_loading: false
+      lighthouse:
+        enabled: false
+        min_performance_score: 80
+
+  visual_regression:
+    enabled: true
+    blocking: true
+    rules:
+      max_diff_pixels: 100
+      threshold: 0.1
+      viewports:
+        - { width: 1280, height: 720, name: desktop }
+        - { width: 375, height: 812, name: mobile }
+
+# 全ゲート通過が必須のステージ
+required_for:
+  staging_deploy: [html, security, accessibility]
+  production_deploy: [html, security, accessibility, visual_regression]
+  pr_merge: [html, security, seo, accessibility, performance]

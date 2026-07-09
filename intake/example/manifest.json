@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "source": {
+    "tool": "codex",
+    "prompt": "ランディングページのヒーローセクション",
+    "generated_at": "2026-07-09T10:00:00+09:00"
+  },
+  "target": {
+    "type": "block",
+    "theme_slug": "custom-theme",
+    "block_name": "hero-section"
+  },
+  "files": [
+    {
+      "path": "hero-section.html",
+      "role": "html",
+      "description": "ヒーローセクションのHTMLマークアップ"
+    },
+    {
+      "path": "hero-section.css",
+      "role": "css",
+      "description": "ヒーローセクションのスタイル"
+    },
+    {
+      "path": "hero-section.js",
+      "role": "js",
+      "description": "アニメーション用JavaScript"
+    }
+  ],
+  "notes": "レスポンシブ対応必須。画像はメディアライブラリのIDを使用すること。"
+}

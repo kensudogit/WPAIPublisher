@@ -1,0 +1,42 @@
+# WPAIPublisher 環境設定テンプレート
+# コピー: cp config/environments.example.yaml config/environments.yaml
+
+project:
+  name: "my-wordpress-site"
+  slug: "my-site"
+
+git:
+  repo: "git@github.com:your-org/wp-content.git"
+  branch_staging: "staging"
+  branch_production: "main"
+  deploy_tag_prefix: "deploy/"
+
+wordpress:
+  # テーマ・プラグインの配置先（リポジトリ内パス）
+  theme_path: "wp-content/themes/custom-theme"
+  blocks_path: "wp-content/themes/custom-theme/blocks"
+
+environments:
+  staging:
+    url: "https://staging.example.com"
+    wp_cli: "ssh user@staging-server 'cd /var/www/staging && wp'"
+  production:
+    url: "https://www.example.com"
+    wp_cli: "ssh user@prod-server 'cd /var/www/production && wp'"
+
+# REST API 認証（Application Passwords 推奨）
+api:
+  staging:
+  production:
+
+validation:
+  # PHP構文チェックを実行するか
+  php_lint: true
+  # theme-check プラグインを使用するか（WP-CLI経由）
+  theme_check: true
+  # デプロイ前にステージングでスモークテストするか
+  smoke_test: true
+
+notifications:
+  # デプロイ通知（任意）
+  slack_webhook: ""

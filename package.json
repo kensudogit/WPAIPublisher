@@ -1,0 +1,15 @@
+{
+  "name": "wpaipublisher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WPAIPublisher visual regression and quality tools",
+  "scripts": {
+    "test:visual": "node scripts/visual/run_regression.mjs",
+    "test:visual:update": "node scripts/visual/run_regression.mjs --update",
+    "test:a11y": "npx @axe-core/cli"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@axe-core/cli": "^4.10.0"
+  }
+}

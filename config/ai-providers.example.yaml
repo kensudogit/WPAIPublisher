@@ -1,0 +1,57 @@
+# マルチAIプロバイダー設定
+# コピー: cp config/ai-providers.example.yaml config/ai-providers.yaml
+
+# パイプライン各ステージに最適なAIを割り当て
+pipeline:
+  intake_format:      # AI出力のintake整形
+    provider: chatgpt
+    fallback: copilot
+  code_generation:    # 初期HTML/CSS/JS生成
+    provider: codex
+    fallback: chatgpt
+  wp_conversion:      # WordPress向け変換
+    provider: claude_code
+    fallback: chatgpt
+  review:             # コードレビュー・品質確認
+    provider: claude_code
+    fallback: chatgpt
+  deploy_decision:    # デプロイ判断
+    provider: claude_code
+    fallback: chatgpt
+
+providers:
+  chatgpt:
+    type: openai
+    model: gpt-4o
+    env_key: OPENAI_API_KEY
+    interface: api          # api | cli | ide
+    prompt_dir: prompts/providers/chatgpt
+
+  codex:
+    type: openai
+    model: gpt-4o
+    env_key: OPENAI_API_KEY
+    interface: api
+    prompt_dir: prompts/providers/codex
+    notes: "OpenAI Codex / ChatGPT API経由"
+
+  claude_code:
+    type: anthropic
+    model: claude-sonnet-4-20250514
+    env_key: ANTHROPIC_API_KEY
+    interface: cli          # Claude Code CLI / Cursor IDE
+    prompt_dir: prompts/providers/claude
+    cli_command: "claude"
+
+  copilot:
+    type: github
+    model: null
+    env_key: GITHUB_TOKEN
+    interface: ide          # GitHub Copilot (IDE拡張)
+    prompt_dir: prompts/providers/copilot
+    notes: "IDE内Copilot Chatを使用。API直接呼び出し不可"
+
+# 手動介入が必要なプロバイダー（自律エージェントが一時停止）
+manual_providers:
+  - copilot
+  - claude_code   # CLI未設定時は手動

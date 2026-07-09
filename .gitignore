@@ -1,0 +1,41 @@
+# 環境設定（Git管理外）
+config/.env
+config/environments.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 出力・デプロイ（ローカル作業データ）
+output/*
+!output/.gitkeep
+deployments/*
+!deployments/.gitkeep
+
+# ナレッジベース（ベクトルインデックス）
+knowledge/vector_store/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Playwright
+test-results/
+playwright-report/
+
+# intake 作業データ
+intake/incoming/*
+!intake/incoming/.gitkeep
+intake/processed/*
+!intake/processed/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

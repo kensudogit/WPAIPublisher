@@ -1,0 +1,74 @@
+# AIエージェント自律実行パイプライン定義
+version: "1.0"
+
+stages:
+  - id: intake
+    name: "Intake受付・バリデーション"
+    script: "scripts/intake/validate_intake.py"
+    auto: true
+    ai_provider: null
+
+  - id: knowledge_retrieve
+    name: "ナレッジベース検索（RAG）"
+    script: "scripts/knowledge/retrieve.py"
+    auto: true
+    ai_provider: null
+    args: ["--session", "{session_id}", "--top-k", "5"]
+
+  - id: convert_prepare
+    name: "変換セッション作成"
+    script: "scripts/convert/prepare_claude_input.py"
+    auto: true
+    ai_provider: null
+
+  - id: wp_conversion
+    name: "WordPress向け変換"
+    script: "scripts/ai/router.py"
+    auto: false
+    ai_provider: claude_code
+    prompt: "prompts/convert-to-wp.md"
+    wait_for: "scripts/convert/mark_converted.py"
+
+  - id: quality_gates
+    name: "品質ゲート実行"
+    script: "scripts/quality/run_gates.py"
+    auto: true
+    args: ["{session_id}", "--stage", "pr_merge"]
+
+  - id: visual_regression
+    name: "ビジュアル回帰テスト"
+    script: "scripts/visual/run_regression.py"
+    auto: true
+    args: ["{session_id}", "--env", "staging"]
+
+  - id: git_pr
+    name: "Pull Request作成"
+    script: "scripts/git/create_pr.py"
+    auto: true
+    args: ["{session_id}"]
+
+  - id: deploy_staging
+    name: "ステージングデプロイ"
+    script: "scripts/deploy/deploy_staging.sh"
+    auto: true
+    requires_approval: false
+
+  - id: deploy_review
+    name: "デプロイ前レビュー"
+    script: "scripts/ai/router.py"
+    auto: false
+    ai_provider: claude_code
+    prompt: "prompts/deploy-review.md"
+
+  - id: deploy_production
+    name: "本番デプロイ"
+    script: "scripts/deploy/deploy_production.sh"
+    auto: true
+    requires_approval: true
+    args: ["{session_id}", "--confirm"]
+
+  - id: knowledge_index
+    name: "ナレッジベース更新"
+    script: "scripts/knowledge/index.py"
+    auto: true
+    args: ["--session", "{session_id}"]

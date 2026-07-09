@@ -1,0 +1,123 @@
+name: WPAIPublisher CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [staging, main]
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Detect WPAI sessions in PR
+        id: sessions
+        run: |
+          SESSIONS=$(find output -maxdepth 1 -mindepth 1 -type d -exec basename {} \; 2>/dev/null | tr '\n' ' ')
+          echo "sessions=$SESSIONS" >> $GITHUB_OUTPUT
+
+      - name: Run quality gates
+        if: steps.sessions.outputs.sessions != ''
+        run: |
+          for SESSION in ${{ steps.sessions.outputs.sessions }}; do
+            echo "=== Quality gates: $SESSION ==="
+            python scripts/quality/run_gates.py "$SESSION" --stage pr_merge
+          done
+
+  visual-regression:
+    name: Visual Regression
+    runs-on: ubuntu-latest
+    needs: quality-gates
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Run visual regression
+        env:
+          WP_STAGING_URL: ${{ secrets.WP_STAGING_URL }}
+        run: |
+          for SESSION in $(find output -maxdepth 1 -mindepth 1 -type d -exec basename {} \; 2>/dev/null); do
+            python scripts/visual/run_regression.py "$SESSION" --env staging || true
+          done
+
+      - name: Upload visual diff artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diffs
+          path: output/**/visual/diff/
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [quality-gates, visual-regression]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Deploy via Git
+        env:
+          WP_STAGING_SSH: ${{ secrets.WP_STAGING_SSH }}
+          WP_STAGING_PATH: ${{ secrets.WP_STAGING_PATH }}
+        run: |
+          pip install -r requirements.txt
+          SESSION=$(find output -maxdepth 1 -mindepth 1 -type d -printf '%T@ %f\n' 2>/dev/null | sort -rn | head -1 | awk '{print $2}')
+          if [[ -n "$SESSION" ]]; then
+            bash scripts/git/deploy_via_git.sh staging "$SESSION"
+          fi
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [quality-gates, visual-regression]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Deploy via Git
+        env:
+          WP_PROD_SSH: ${{ secrets.WP_PROD_SSH }}
+          WP_PROD_PATH: ${{ secrets.WP_PROD_PATH }}
+        run: |
+          pip install -r requirements.txt
+          SESSION=$(find output -maxdepth 1 -mindepth 1 -type d -printf '%T@ %f\n' 2>/dev/null | sort -rn | head -1 | awk '{print $2}')
+          if [[ -n "$SESSION" ]]; then
+            bash scripts/git/deploy_via_git.sh production "$SESSION" --confirm
+          fi
