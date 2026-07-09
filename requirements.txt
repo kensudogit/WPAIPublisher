@@ -1,4 +1,5 @@
 PyYAML>=6.0
+psycopg[binary]>=3.2
 
 # オプション: OpenAI Embeddings（高度なRAG）
 # openai>=1.0

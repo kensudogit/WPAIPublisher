@@ -532,6 +532,26 @@ WordPress Staging / Prod  ロールバック可</pre>
         </li>
 
         <li>
+          <strong>3b. 複数 HTML から処理対象を選択</strong>
+          <p>
+            1 フォルダに複数の HTML がある場合、処理したいファイルだけを選んで intake → validate → convert prepare まで実行できます。
+            同名の CSS/JS と、HTML 内の相対参照アセットは自動で同梱されます。
+          </p>
+          <ul class="usage-guide-items">
+            <li>一覧: <code>python wpaipublish.py intake list &lt;folder&gt;</code></li>
+            <li>対話選択: <code>python wpaipublish.py intake select &lt;folder&gt; --interactive</code></li>
+            <li>
+              指定してパイプライン開始:<br>
+              <code>python wpaipublish.py intake pipeline &lt;folder&gt; --select hero.html --select pages/about.html --target-type page</code>
+            </li>
+            <li>Web UI: ナビの「HTML選択」(<code>/pipeline</code>) → フォルダパス入力 → チェック選択 → 「パイプライン開始」</li>
+            <li>サンプル: <code>intake/samples/multi-html/</code>（hero / about / contact）</li>
+            <li>生成物: <code>intake/incoming/selected-*</code> と <code>output/&lt;session&gt;/</code></li>
+            <li>続き: <code>ai route</code> → <code>convert mark-done</code> → <code>quality run</code> → <code>deploy staging</code></li>
+          </ul>
+        </li>
+
+        <li>
           <strong>4. 変換セッション作成</strong>
           <p>Claude Code 向けの入力パッケージと指示ファイルを生成します。</p>
           <ul class="usage-guide-items">

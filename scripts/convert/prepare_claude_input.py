@@ -98,6 +98,11 @@ def main() -> int:
         return 1
 
     task = prepare_claude_input(intake_dir, output_session)
+
+    from lib.sync_hook import sync_session  # noqa: E402
+
+    sync_session(session_id)
+
     print(f"セッション作成: {output_session}")
     print(f"Claude Code 指示: {output_session / 'CLAUDE_INSTRUCTIONS.md'}")
     print(f"プロンプト: {task['prompt_file']}")

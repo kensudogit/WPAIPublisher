@@ -37,6 +37,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <p className="page-lead" style={{ marginBottom: '1.5rem' }}>
+        複数 HTML から処理対象を選ぶ場合は <a href="/pipeline">HTML選択</a> へ。
+      </p>
+
       <section className="section" aria-labelledby="flow-title">
         <div className="section-head">
           <h2 id="flow-title">パイプライン</h2>

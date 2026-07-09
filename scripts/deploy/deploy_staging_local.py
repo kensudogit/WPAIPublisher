@@ -145,6 +145,10 @@ def main() -> int:
     task["deployed_at"] = datetime.now(timezone.utc).isoformat()
     (session_dir / "task.json").write_text(json.dumps(task, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    from lib.sync_hook import sync_session  # noqa: E402
+
+    sync_session(args.session_id)
+
     print("[INFO] ステージングデプロイ完了")
     print(f"[INFO] 確認URL: {task['staging_url']}")
     return 0

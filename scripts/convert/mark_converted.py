@@ -41,6 +41,10 @@ def main() -> int:
     with open(task_path, "w", encoding="utf-8") as f:
         json.dump(task, f, indent=2, ensure_ascii=False)
 
+    from lib.sync_hook import sync_session  # noqa: E402
+
+    sync_session(args.session_id)
+
     print(f"変換完了: {args.session_id}")
     print("次のステップ: python scripts/validate/run_validation.py " + args.session_id)
     return 0

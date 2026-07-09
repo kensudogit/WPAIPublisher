@@ -3,6 +3,9 @@
 WPAIPublisher メインオーケストレーター
 
 使用例:
+  python wpaipublish.py intake list <folder>
+  python wpaipublish.py intake select <folder> --interactive
+  python wpaipublish.py intake pipeline <folder> --select a.html --select b.html
   python wpaipublish.py intake validate
   python wpaipublish.py convert prepare
   python wpaipublish.py validate run <session_id>
@@ -40,6 +43,88 @@ def cmd_intake(args: argparse.Namespace) -> int:
         if args.path:
             cmd.append(args.path)
         return run_script(cmd)
+
+    if args.action == "list":
+        if not args.path:
+            print("ERROR: HTML フォルダを指定してください", file=sys.stderr)
+            return 1
+        cmd = [sys.executable, str(SCRIPTS / "intake" / "select_files.py"), "list", args.path]
+        if args.json:
+            cmd.append("--json")
+        return run_script(cmd)
+
+    if args.action == "select":
+        if not args.path:
+            print("ERROR: HTML フォルダを指定してください", file=sys.stderr)
+            return 1
+        if args.interactive:
+            cmd = [
+                sys.executable,
+                str(SCRIPTS / "intake" / "select_files.py"),
+                "interactive",
+                args.path,
+                "--target-type",
+                args.target_type,
+                "--theme-slug",
+                args.theme_slug,
+                "--tool",
+                args.tool,
+            ]
+            return run_script(cmd)
+        if not args.select:
+            print("ERROR: --select または --interactive を指定してください", file=sys.stderr)
+            return 1
+        cmd = [
+            sys.executable,
+            str(SCRIPTS / "intake" / "select_files.py"),
+            "create",
+            args.path,
+            "--target-type",
+            args.target_type,
+            "--theme-slug",
+            args.theme_slug,
+            "--tool",
+            args.tool,
+        ]
+        for sel in args.select:
+            cmd.extend(["--select", sel])
+        if args.package_name:
+            cmd.extend(["--package-name", args.package_name])
+        if args.notes:
+            cmd.extend(["--notes", args.notes])
+        if args.json:
+            cmd.append("--json")
+        return run_script(cmd)
+
+    if args.action == "pipeline":
+        if not args.path or not args.select:
+            print("ERROR: フォルダと --select が必要です", file=sys.stderr)
+            return 1
+        cmd = [
+            sys.executable,
+            str(SCRIPTS / "intake" / "start_pipeline.py"),
+            args.path,
+            "--target-type",
+            args.target_type,
+            "--theme-slug",
+            args.theme_slug,
+            "--tool",
+            args.tool,
+        ]
+        for sel in args.select:
+            cmd.extend(["--select", sel])
+        if args.package_name:
+            cmd.extend(["--package-name", args.package_name])
+        if args.session_id:
+            cmd.extend(["--session-id", args.session_id])
+        if args.notes:
+            cmd.extend(["--notes", args.notes])
+        if args.agent:
+            cmd.append("--agent")
+        if args.json:
+            cmd.append("--json")
+        return run_script(cmd)
+
     print(f"不明な intake アクション: {args.action}", file=sys.stderr)
     return 1
 
@@ -182,7 +267,34 @@ def cmd_rollback(args: argparse.Namespace) -> int:
     return run_script(cmd)
 
 
-def cmd_status(_args: argparse.Namespace) -> int:
+def cmd_db(args: argparse.Namespace) -> int:
+    cmd = [sys.executable, str(SCRIPTS / "db" / "sync_sessions.py"), args.action]
+    if args.session_id:
+        cmd.append(args.session_id)
+    if args.json:
+        cmd.append("--json")
+    return run_script(cmd)
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    # DATABASE_URL がある場合は Postgres 優先
+    try:
+        sys.path.insert(0, str(SCRIPTS))
+        from lib.session_store import database_url, list_sessions
+
+        if database_url() and not getattr(args, "local", False):
+            rows = list_sessions()
+            if not rows:
+                print("セッションなし（PostgreSQL）")
+                return 0
+            print(f"{'Session ID':<20} {'Status':<22} {'Agent':<12} {'Target':<12}")
+            print("-" * 68)
+            for r in rows:
+                print(f"{r['id']:<20} {r['status']:<22} {r['agent']:<12} {r['target']:<12}")
+            return 0
+    except Exception as e:  # noqa: BLE001
+        print(f"[db] fallback to local: {e}", file=sys.stderr)
+
     output_dir = ROOT / "output"
     if not output_dir.exists():
         print("セッションなし")
@@ -221,9 +333,27 @@ def main() -> int:
     )
     sub = parser.add_subparsers(dest="command")
 
-    p_intake = sub.add_parser("intake", help="AI出力の受け取り")
-    p_intake.add_argument("action", choices=["validate"])
-    p_intake.add_argument("path", nargs="?", help="intakeディレクトリ")
+    p_intake = sub.add_parser("intake", help="AI出力の受け取り / HTML選択")
+    p_intake.add_argument(
+        "action",
+        choices=["validate", "list", "select", "pipeline"],
+        help="validate | list | select | pipeline",
+    )
+    p_intake.add_argument("path", nargs="?", help="intake または HTML ソースフォルダ")
+    p_intake.add_argument("--select", action="append", help="処理する HTML 相対パス（複数可）")
+    p_intake.add_argument("--interactive", action="store_true", help="対話的に HTML を選択")
+    p_intake.add_argument("--package-name", help="intake パッケージ名")
+    p_intake.add_argument("--session-id", help="pipeline 時のセッションID")
+    p_intake.add_argument(
+        "--target-type",
+        default="page",
+        choices=["page", "block", "theme", "template-part", "custom-css"],
+    )
+    p_intake.add_argument("--theme-slug", default="custom-theme")
+    p_intake.add_argument("--tool", default="other", choices=["codex", "cursor", "copilot", "other"])
+    p_intake.add_argument("--notes", default="")
+    p_intake.add_argument("--agent", action="store_true", help="pipeline 後に agent run")
+    p_intake.add_argument("--json", action="store_true")
 
     p_convert = sub.add_parser("convert", help="AI変換")
     p_convert.add_argument("action", choices=["prepare", "mark-done"])
@@ -289,7 +419,13 @@ def main() -> int:
     p_rollback.add_argument("--confirm", action="store_true")
     p_rollback.add_argument("--via-git", action="store_true")
 
-    sub.add_parser("status", help="セッション一覧")
+    p_db = sub.add_parser("db", help="PostgreSQL セッション同期")
+    p_db.add_argument("action", choices=["sync", "list", "push"])
+    p_db.add_argument("session_id", nargs="?", help="push 時のセッションID")
+    p_db.add_argument("--json", action="store_true")
+
+    p_status = sub.add_parser("status", help="セッション一覧")
+    p_status.add_argument("--local", action="store_true", help="ローカル output/ のみ表示")
 
     args = parser.parse_args()
     if not args.command:
@@ -308,6 +444,7 @@ def main() -> int:
         "agent": cmd_agent,
         "deploy": cmd_deploy,
         "rollback": cmd_rollback,
+        "db": cmd_db,
         "status": cmd_status,
     }
     return handlers[args.command](args)

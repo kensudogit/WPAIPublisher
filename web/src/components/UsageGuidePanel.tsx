@@ -49,11 +49,23 @@ const steps = [
   },
   {
     title: '3. AI出力の投入',
-    body: 'Codex 等の成果物を intake 形式で受け取ります。',
+    body: '単一パッケージ、または複数 HTML から選択して intake します。',
     items: [
-      'intake/incoming/<package>/ に配置',
-      'manifest.json 必須',
-      'python wpaipublish.py intake validate ...',
+      '単一: intake/incoming/<package>/ + manifest.json',
+      '検証: python wpaipublish.py intake validate ...',
+      '複数HTML: intake list / select / pipeline',
+      'Web UI: /pipeline でチェック選択 → 開始',
+    ],
+  },
+  {
+    title: '3b. 複数HTMLから選択',
+    body: 'フォルダ内の HTML を一覧し、処理対象だけをパイプラインへ流します。',
+    items: [
+      'python wpaipublish.py intake list <folder>',
+      'intake select <folder> --interactive',
+      'intake pipeline <folder> --select a.html --select b.html',
+      '同名 CSS/JS・相対参照アセットは自動同梱',
+      'サンプル: intake/samples/multi-html/',
     ],
   },
   {

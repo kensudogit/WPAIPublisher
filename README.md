@@ -89,10 +89,30 @@ python wpaipublish.py knowledge index --rebuild
 
 ### 3. AI出力の投入
 
+単一パッケージの場合:
+
 ```bash
 cp -r intake/example intake/incoming/hero-demo
 python wpaipublish.py intake validate intake/incoming/hero-demo
 ```
+
+複数 HTML が入ったフォルダから処理対象を選ぶ場合:
+
+```bash
+# 一覧
+python wpaipublish.py intake list intake/samples/multi-html
+
+# 対話選択 → intake 作成
+python wpaipublish.py intake select intake/samples/multi-html --interactive
+
+# 指定ファイルで intake → validate → convert prepare
+python wpaipublish.py intake pipeline intake/samples/multi-html \
+  --select hero.html \
+  --select pages/about.html \
+  --target-type page
+```
+
+Web UI: `/pipeline`（フォルダパスを入力 → チェック選択 → パイプライン開始）
 
 ### 4. エージェント自律実行（推奨）
 
@@ -137,6 +157,7 @@ python wpaipublish.py status
 
 | コマンド | 説明 |
 |---------|------|
+| `intake list / select / pipeline` | 複数HTMLから選択して intake〜prepare |
 | `intake validate` | AI出力バリデーション |
 | `convert prepare / mark-done` | 変換セッション管理 |
 | `validate run` | 基本検証（PHP構文等） |
@@ -147,7 +168,8 @@ python wpaipublish.py status
 | `ai route / list` | マルチAIルーター |
 | `agent run / resume` | AIエージェント自律実行 |
 | `deploy / rollback` | 直接デプロイ・ロールバック |
-| `status` | セッション一覧 |
+| `db sync / list / push` | PostgreSQL へセッション同期 |
+| `status` | セッション一覧（DB 優先） |
 
 ## 前提条件
 
@@ -165,6 +187,7 @@ python wpaipublish.py status
 
 - [利用手順パネル（UI）](docs/usage-guide.html) — アップロード画像と同デザインの詳細手順
 - [ローカルステージング](docs/LOCAL_STAGING.md) — Docker WordPress での確認
+- [PostgreSQL セッション](docs/POSTGRES.md) — Railway Postgres 連携
 - [拡張機能ガイド](docs/FEATURES.md)
 - [運用マニュアル](docs/OPERATIONS.md)
 - [ロールバック手順書](docs/ROLLBACK.md)

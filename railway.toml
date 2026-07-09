@@ -1,9 +1,12 @@
-# WPAIPublisher — Railway (Next.js web console)
+# WPAIPublisher — Railway (Next.js web console + Postgres sessions)
 #
 # Service Settings:
-#   Root Directory  -> EMPTY (repo root)
+#   Root Directory  -> EMPTY
 #   Dockerfile Path -> Dockerfile
 #   Config file     -> /railway.toml
+#
+# Variables (on THIS service, not Postgres):
+#   DATABASE_URL -> Reference from Postgres plugin
 
 [build]
 builder = "DOCKERFILE"

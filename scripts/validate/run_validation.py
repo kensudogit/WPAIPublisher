@@ -110,6 +110,22 @@ def main() -> int:
     with open(result_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
 
+    # 検証ステータスを task に反映して DB 同期
+    try:
+        with open(task_path, encoding="utf-8") as f:
+            task_data = json.load(f)
+        task_data["status"] = "validated" if not errors else "validation_failed"
+        task_data["validated_at"] = __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc
+        ).isoformat()
+        with open(task_path, "w", encoding="utf-8") as f:
+            json.dump(task_data, f, indent=2, ensure_ascii=False)
+        from lib.sync_hook import sync_session  # noqa: E402
+
+        sync_session(args.session_id)
+    except Exception:  # noqa: BLE001
+        pass
+
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:

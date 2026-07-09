@@ -85,6 +85,8 @@ ssh $WP_PROD_SSH "cd $WP_PROD_PATH && wp --info"
 
 **頻度**: AI生成のたびに実施
 
+#### 単一パッケージ
+
 1. Codex 等で HTML/CSS/JS を生成
 2. `intake/incoming/<package-name>/` にファイルを配置
 3. `manifest.json` を作成（`intake/example/` 参照）
@@ -94,7 +96,28 @@ ssh $WP_PROD_SSH "cd $WP_PROD_PATH && wp --info"
 python wpaipublish.py intake validate intake/incoming/<package-name>
 ```
 
-**完了条件**: `VALIDATION OK` が表示される
+#### 複数 HTML から選択
+
+1 フォルダに複数 HTML がある場合、処理対象だけを選んで intake〜prepare まで実行できます。
+
+```bash
+# 一覧
+python wpaipublish.py intake list <folder>
+
+# 対話選択 → intake 作成
+python wpaipublish.py intake select <folder> --interactive
+
+# 指定ファイルで intake → validate → convert prepare
+python wpaipublish.py intake pipeline <folder> \
+  --select hero.html \
+  --select pages/about.html \
+  --target-type page
+```
+
+Web UI: `/pipeline`（ナビ「HTML選択」）でフォルダパス入力 → チェック選択 → パイプライン開始。  
+サンプル: `intake/samples/multi-html/`
+
+**完了条件**: `VALIDATION OK` が表示される（pipeline 利用時はセッションも作成済み）
 
 ### Phase 2: Claude Code による変換
 

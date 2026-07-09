@@ -11,12 +11,16 @@ export default function GuidePage() {
             右のパネルはドラッグで移動・開閉できる利用手順です。セットアップからローカルステージング、本番デプロイまでの流れをまとめています。
           </p>
           <p>
+            複数 HTML が入ったフォルダから処理対象を選ぶ場合は、ナビの「HTML選択」(<code>/pipeline</code>)、または
+            <code>intake list / select / pipeline</code> を使います。手順パネルの「3b」も参照してください。
+          </p>
+          <p>
             ローカル確認は <code>docker compose -f docker-compose.staging.yml up -d</code> のあと、
             <code>python wpaipublish.py deploy staging &lt;session&gt;</code> で反映できます。
           </p>
           <p>
             詳細ドキュメント: <code>docs/LOCAL_STAGING.md</code> · <code>docs/FEATURES.md</code> ·{' '}
-            <code>docs/OPERATIONS.md</code>
+            <code>docs/OPERATIONS.md</code> · <code>docs/usage-guide.html</code>
           </p>
         </div>
         <UsageGuidePanel />

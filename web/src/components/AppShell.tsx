@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 const links = [
   { href: '/', label: 'ホーム' },
   { href: '/dashboard', label: 'ダッシュボード' },
+  { href: '/pipeline', label: 'HTML選択' },
   { href: '/guide', label: '利用手順' },
 ] as const
 
