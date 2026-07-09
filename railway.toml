@@ -1,0 +1,16 @@
+# WPAIPublisher — Railway (Next.js web console)
+#
+# Service Settings:
+#   Root Directory  -> EMPTY (repo root)
+#   Dockerfile Path -> Dockerfile
+#   Config file     -> /railway.toml
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+numReplicas = 1

@@ -2,8 +2,11 @@
   "name": "wpaipublisher",
   "version": "1.0.0",
   "private": true,
-  "description": "WPAIPublisher visual regression and quality tools",
+  "description": "WPAIPublisher visual regression, quality tools, and web console",
   "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build:web": "npm --prefix web run build",
+    "start:web": "npm --prefix web run start",
     "test:visual": "node scripts/visual/run_regression.mjs",
     "test:visual:update": "node scripts/visual/run_regression.mjs --update",
     "test:a11y": "npx @axe-core/cli"

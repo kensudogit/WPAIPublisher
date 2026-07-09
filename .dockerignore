@@ -1,0 +1,17 @@
+# Keep Railway / Docker build context lean
+node_modules
+**/node_modules
+web/node_modules
+web/.next
+.git
+.env
+.env.*
+!.env.example
+!.env.railway.example
+.cursor
+output
+deployments
+staging
+knowledge/vector_store
+**/*.md
+!README.md
