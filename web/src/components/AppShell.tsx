@@ -7,6 +7,7 @@ const links = [
   { href: '/', label: 'ホーム' },
   { href: '/dashboard', label: 'ダッシュボード' },
   { href: '/pipeline', label: 'HTML選択' },
+  { href: '/tests', label: 'テスト' },
   { href: '/guide', label: '利用手順' },
 ] as const
 

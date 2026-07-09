@@ -484,18 +484,59 @@ WordPress Staging / Prod  ロールバック可</pre>
         </div>
         <p>
           1 コマンドで intake → RAG → 変換準備 → 品質ゲート → PR → ステージングまで進行。手動介入が必要なステージでは一時停止します。
+          手作業のコマンド列より、<code>intake pipeline</code> → <code>agent run</code> → Claude Code → <code>agent resume</code> の方がミスが少なく、品質ゲートも飛ばしにくいです。
         </p>
         <ul class="usage-guide-items">
-          <li><code>python wpaipublish.py agent run &lt;session&gt;</code> — 開始</li>
-          <li><code>agent resume</code> — Claude Code 変換完了後に再開</li>
+          <li>初回のみ: <code>knowledge index --rebuild</code> + ローカル Docker staging（<code>docs/LOCAL_STAGING.md</code>）</li>
+          <li>複数HTML: <code>intake pipeline &lt;folder&gt; --select … --session-id &lt;id&gt;</code></li>
+          <li>単一: <code>convert prepare … --session-id &lt;id&gt;</code> → <code>agent run &lt;id&gt;</code></li>
+          <li>Claude Code で <code>CLAUDE_INSTRUCTIONS.md</code> を実行（コード手書き不要）→ <code>convert mark-done</code></li>
+          <li><code>agent resume</code> — 品質ゲート〜staging まで再開</li>
           <li><code>agent resume --approve</code> — 本番デプロイ承認</li>
-          <li>中断: wp_conversion · deploy_review · deploy_production</li>
+          <li>中断ポイント: wp_conversion · deploy_review · deploy_production</li>
+        </ul>
+      </section>
+
+      <section class="usage-guide-featured" aria-label="運用のコツ">
+        <div class="usage-guide-featured-head">
+          <span class="usage-guide-featured-badge">Tips</span>
+          <strong>うまくいく運用のコツ</strong>
+        </div>
+        <ul class="usage-guide-items">
+          <li>セッションIDは日付付き短名（例: <code>hero-20260710</code>）。後から追跡しやすい</li>
+          <li>変換前に <code>knowledge retrieve --session &lt;id&gt;</code> で RAG を渡すと品質が安定</li>
+          <li>リモート WP の前に <code>localhost:8088</code> で確認（Docker staging）</li>
+          <li>初回の visual は <code>visual run &lt;id&gt; --update</code> でベースライン作成</li>
+          <li>blocking の品質ゲート失敗時はデプロイしない。修正 → <code>mark-done</code> → <code>agent resume</code></li>
+          <li>処理済み intake は <code>intake/processed/</code> へ移動して二重投入を防ぐ</li>
+          <li>状態確認: <code>python wpaipublish.py status</code></li>
+          <li>ユニットテスト: <code>python wpaipublish.py test run</code> · Web: <code>/tests</code></li>
         </ul>
       </section>
 
       <p class="usage-guide-scroll-hint">↓ セットアップ・変換・品質・デプロイの手順は下へ</p>
 
       <ol class="usage-guide-steps">
+        <li>
+          <strong>0. 推奨フロー（最短・安全）</strong>
+          <p>
+            毎回の手作業を減らし、Agent + ローカル staging を先に使うのが最も安全です。
+            WordPress 向け変換は Claude Code のプロンプトだけでよく（コード手書き不要）、前後の工程は CLI / Agent が担います。
+          </p>
+          <ul class="usage-guide-items">
+            <li>初回のみ: <code>python wpaipublish.py knowledge index --rebuild</code></li>
+            <li>ローカル WP: <code>docker compose -f docker-compose.staging.yml up -d</code> → <code>bash scripts/local/bootstrap_wp.sh</code></li>
+            <li>
+              複数 HTML の例:<br>
+              <code>python wpaipublish.py intake pipeline intake/samples/multi-html --select hero.html --session-id hero-20260710</code>
+            </li>
+            <li><code>python wpaipublish.py agent run hero-20260710</code> → 表示された指示を Claude Code で実行</li>
+            <li><code>python wpaipublish.py convert mark-done hero-20260710</code></li>
+            <li><code>python wpaipublish.py agent resume hero-20260710</code>（品質〜staging）</li>
+            <li><code>http://localhost:8088</code> で確認 → <code>agent resume hero-20260710 --approve</code>（本番）</li>
+          </ul>
+        </li>
+
         <li>
           <strong>1. 初回セットアップ</strong>
           <p>依存関係と設定ファイルを用意します。API キーは <code>config/.env</code> のみに保存してください。</p>
@@ -655,6 +696,7 @@ WordPress Staging / Prod  ロールバック可</pre>
             <li>本番は <code>--confirm</code> または Agent <code>--approve</code> 必須</li>
             <li>処理済み intake は <code>intake/processed/</code> へ移動</li>
             <li>状態確認: <code>python wpaipublish.py status</code></li>
+            <li>ユニットテスト: <code>python wpaipublish.py test run</code> · Web: <code>/tests</code></li>
           </ul>
         </li>
       </ol>

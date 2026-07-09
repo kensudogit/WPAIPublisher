@@ -11,6 +11,10 @@ export default function GuidePage() {
             右のパネルはドラッグで移動・開閉できる利用手順です。セットアップからローカルステージング、本番デプロイまでの流れをまとめています。
           </p>
           <p>
+            <strong>推奨:</strong> <code>intake pipeline</code> → <code>agent run</code> → Claude Code（コード手書き不要）→{' '}
+            <code>agent resume</code>。リモート WP の前に Docker の <code>localhost:8088</code> で確認してください。手順パネルの「0」が最短フローです。
+          </p>
+          <p>
             複数 HTML が入ったフォルダから処理対象を選ぶ場合は、ナビの「HTML選択」(<code>/pipeline</code>)、または
             <code>intake list / select / pipeline</code> を使います。手順パネルの「3b」も参照してください。
           </p>

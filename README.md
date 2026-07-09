@@ -62,6 +62,8 @@ npm run dev
 |------|------|
 | `/` | ブランドヒーロー + 標準装備 |
 | `/dashboard` | セッション一覧 + パイプライン |
+| `/pipeline` | 複数 HTML から選択してパイプライン開始 |
+| `/tests` | ユニットテスト実行・結果確認 |
 | `/guide` | ドラッグ可能な利用手順パネル |
 
 ## クイックスタート
@@ -169,6 +171,7 @@ python wpaipublish.py status
 | `agent run / resume` | AIエージェント自律実行 |
 | `deploy / rollback` | 直接デプロイ・ロールバック |
 | `db sync / list / push` | PostgreSQL へセッション同期 |
+| `test run / list / show` | ユニットテスト実行・結果確認（Web: `/tests`） |
 | `status` | セッション一覧（DB 優先） |
 
 ## 前提条件

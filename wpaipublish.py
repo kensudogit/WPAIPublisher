@@ -19,6 +19,8 @@ WPAIPublisher メインオーケストレーター
   python wpaipublish.py deploy staging <session_id>
   python wpaipublish.py deploy production <session_id> --confirm
   python wpaipublish.py rollback <session_id> production --confirm
+  python wpaipublish.py test run
+  python wpaipublish.py test list
   python wpaipublish.py status
 """
 
@@ -276,6 +278,22 @@ def cmd_db(args: argparse.Namespace) -> int:
     return run_script(cmd)
 
 
+def cmd_test(args: argparse.Namespace) -> int:
+    cmd = [sys.executable, str(SCRIPTS / "test" / "run_tests.py"), args.action]
+    if args.action == "run":
+        if args.path:
+            cmd.extend(["--path", args.path])
+        if args.keyword:
+            cmd.extend(["-k", args.keyword])
+    elif args.action == "list":
+        cmd.extend(["--limit", str(args.limit)])
+    elif args.action == "show":
+        cmd.append(args.run_id or "latest")
+    if args.json:
+        cmd.append("--json")
+    return run_script(cmd)
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     # DATABASE_URL がある場合は Postgres 優先
     try:
@@ -424,6 +442,14 @@ def main() -> int:
     p_db.add_argument("session_id", nargs="?", help="push 時のセッションID")
     p_db.add_argument("--json", action="store_true")
 
+    p_test = sub.add_parser("test", help="ユニットテスト実行・結果確認")
+    p_test.add_argument("action", choices=["run", "list", "show"])
+    p_test.add_argument("run_id", nargs="?", default="latest", help="show 時の実行ID")
+    p_test.add_argument("--path", default="tests", help="テストパス")
+    p_test.add_argument("-k", "--keyword", help="pytest -k フィルタ")
+    p_test.add_argument("--limit", type=int, default=20, help="list 件数")
+    p_test.add_argument("--json", action="store_true")
+
     p_status = sub.add_parser("status", help="セッション一覧")
     p_status.add_argument("--local", action="store_true", help="ローカル output/ のみ表示")
 
@@ -445,6 +471,7 @@ def main() -> int:
         "deploy": cmd_deploy,
         "rollback": cmd_rollback,
         "db": cmd_db,
+        "test": cmd_test,
         "status": cmd_status,
     }
     return handlers[args.command](args)

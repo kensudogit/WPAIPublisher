@@ -81,6 +81,46 @@ ssh $WP_PROD_SSH "cd $WP_PROD_PATH && wp --info"
 
 ## 5. 標準ワークフロー
 
+### 推奨: 最短・安全フロー（Agent + ローカル staging）
+
+手作業のコマンド列より、次の順がミスが少なく品質ゲートも飛ばしにくいです。
+
+```bash
+# 初回のみ
+python wpaipublish.py knowledge index --rebuild
+docker compose -f docker-compose.staging.yml up -d
+bash scripts/local/bootstrap_wp.sh   # Git Bash / WSL
+
+# 複数 HTML から選択してセッション作成（単一なら convert prepare）
+python wpaipublish.py intake pipeline intake/samples/multi-html \
+  --select hero.html \
+  --session-id hero-20260710 \
+  --target-type page
+
+# Agent 開始 → Claude Code で指示ファイルを実行（コード手書き不要）
+python wpaipublish.py agent run hero-20260710
+# … Claude Code で CLAUDE_INSTRUCTIONS.md / convert-to-wp.md を実行 …
+python wpaipublish.py convert mark-done hero-20260710
+
+# 品質ゲート → visual → PR → staging まで再開
+python wpaipublish.py agent resume hero-20260710
+# http://localhost:8088 で確認
+
+# 本番（承認必須）
+python wpaipublish.py agent resume hero-20260710 --approve
+```
+
+**運用のコツ**
+
+| コツ | 理由 |
+|------|------|
+| セッションIDは日付付き短名 | 追跡・ロールバックが容易 |
+| 変換前に `knowledge retrieve` | RAG で変換品質が安定 |
+| 先にローカル Docker staging | リモート設定前でも完走できる |
+| 初回 `visual run --update` | ベースラインがないと比較できない |
+| blocking 失敗時はデプロイしない | 修正 → mark-done → resume |
+| 処理済みは `intake/processed/` へ | 二重投入防止 |
+
 ### Phase 1: AI出力の受け取り
 
 **頻度**: AI生成のたびに実施

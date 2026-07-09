@@ -28,23 +28,40 @@ Git PR → staging → main   WP-CLI / REST / SCP
     ▼
 WordPress Staging / Prod  ロールバック可`
 
+const recommendedFlow = [
+  '初回のみ: knowledge index --rebuild + ローカル Docker staging',
+  '複数HTML: intake pipeline <folder> --select … --session-id <id>',
+  '単一: convert prepare … → agent run <id>',
+  'Claude Code で CLAUDE_INSTRUCTIONS.md を実行（コード手書き不要）',
+  'convert mark-done → agent resume（品質〜staging まで自動）',
+  'localhost:8088 で確認 → agent resume --approve（本番）',
+] as const
+
 const steps = [
   {
+    title: '0. 推奨フロー（最短・安全）',
+    body: '毎回の手作業を減らし、Agent + ローカル staging を先に使うのが最も安全です。',
+    items: [...recommendedFlow],
+  },
+  {
     title: '1. 初回セットアップ',
-    body: '依存関係と設定ファイルを用意します。',
+    body: '依存関係と設定ファイルを用意します。リモート WP がなくても Docker で完走できます。',
     items: [
       'pip install -r requirements.txt',
       'npm install && npx playwright install chromium',
       'config/*.example.yaml をコピーして編集',
-      'config/.env に WP / API キーを設定',
+      'config/.env に WP / API キー（ローカルのみなら後回し可）',
+      'docker compose -f docker-compose.staging.yml up -d',
+      'bash scripts/local/bootstrap_wp.sh（初回のみ）',
     ],
   },
   {
     title: '2. ナレッジベース構築',
-    body: '過去の変換パターンをインデックスします。',
+    body: '変換前に RAG を用意すると、Claude Code の出力品質が安定します。',
     items: [
       'python wpaipublish.py knowledge index --rebuild',
-      'knowledge retrieve --session <id>',
+      'セッション追加: knowledge index --session <id>',
+      '変換前: knowledge retrieve --session <id>',
     ],
   },
   {
@@ -55,6 +72,7 @@ const steps = [
       '検証: python wpaipublish.py intake validate ...',
       '複数HTML: intake list / select / pipeline',
       'Web UI: /pipeline でチェック選択 → 開始',
+      'セッションIDは日付付き短名を推奨（例: hero-20260710）',
     ],
   },
   {
@@ -63,45 +81,58 @@ const steps = [
     items: [
       'python wpaipublish.py intake list <folder>',
       'intake select <folder> --interactive',
-      'intake pipeline <folder> --select a.html --select b.html',
+      'intake pipeline <folder> --select a.html --session-id <id>',
       '同名 CSS/JS・相対参照アセットは自動同梱',
       'サンプル: intake/samples/multi-html/',
     ],
   },
   {
     title: '4. Claude Code で変換',
-    body: 'WP向け変換はコード手書き不要。プロンプトに従い Claude Code が出力します。',
+    body: 'WP向け変換はコード手書き不要。Agent 経由が手数が最少です。',
     items: [
-      'convert prepare → CLAUDE_INSTRUCTIONS.md 生成',
-      'Claude Code で prompts/convert-to-wp.md を実行',
+      '推奨: agent run <id> → 指示ファイルを Claude Code で実行',
+      '代替: convert prepare → Claude Code → convert mark-done',
+      '任意: ai route --stage wp_conversion --auto-cli',
       '出力: output/<session>/wordpress/',
-      '完了: convert mark-done <session>',
       '注意: intake〜deploy 全体は CLI 必須（設定だけでは不可）',
     ],
   },
   {
     title: '5. 品質ゲート',
-    body: '自動検査のあとステージングへ進みます。',
+    body: 'blocking 失敗時はデプロイしない。初回 visual は --update が必要です。',
     items: [
-      'quality run / visual run',
-      'agent resume で手動ステージ後に再開可',
+      'agent resume で quality → visual → PR → staging まで進行',
+      '手動: quality run / visual run --update（初回）',
+      '結果: output/<session>/quality_gates.json',
     ],
   },
   {
     title: '6. ステージング確認',
-    body: 'ローカル Docker またはリモート staging へ反映します。',
+    body: '本番前は必ず staging。ローカル Docker を先に使うと速いです。',
     items: [
-      'docker compose -f docker-compose.staging.yml up -d',
-      'python wpaipublish.py deploy staging <session>',
-      'http://localhost:8088 で確認',
+      'deploy staging <session>（ローカルなら localhost:8088）',
+      '確認: レスポンシブ · JS · 既存ページ影響 · コンソール',
+      'レビュー: prompts/deploy-review.md',
     ],
   },
   {
     title: '7. 本番デプロイ',
-    body: '確認後に --confirm で本番反映します。',
+    body: '確認後に --confirm または agent --approve で本番反映します。',
     items: [
-      'python wpaipublish.py deploy production <session> --confirm',
+      'agent resume <session> --approve',
+      'または deploy production <session> --confirm',
       '障害時は rollback --confirm',
+      '処理済み intake は intake/processed/ へ移動',
+    ],
+  },
+  {
+    title: '8. テスト（品質確認）',
+    body: 'ユニットテストを実行し、結果を Web の /tests で確認します。',
+    items: [
+      'python wpaipublish.py test run',
+      'test list / test show latest',
+      'Web: /tests で実行・履歴・ケース詳細',
+      '結果保存先: output/test-results/',
     ],
   },
 ] as const
@@ -250,6 +281,23 @@ export function UsageGuidePanel() {
             </p>
           </section>
 
+          <section className="usage-guide-featured" aria-label="推奨フロー">
+            <div className="usage-guide-featured-head">
+              <span className="usage-guide-featured-badge">Recommended</span>
+              <strong>最短・安全な進め方</strong>
+            </div>
+            <p>
+              手作業のコマンド列より、<code>intake pipeline</code> → <code>agent run</code> → Claude Code →{' '}
+              <code>agent resume</code> の方がミスが少なく、品質ゲートも飛ばしにくいです。リモート WP の前にローカル
+              Docker staging で確認してください。
+            </p>
+            <ul className="usage-guide-items">
+              {recommendedFlow.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+
           <figure className="usage-guide-diagram" aria-label="Service topology">
             <figcaption>Service topology（本番）</figcaption>
             <pre>{archDiagram}</pre>
@@ -272,7 +320,7 @@ export function UsageGuidePanel() {
           </ol>
 
           <p className="usage-guide-footer">
-            ▼▲ で開閉 · ヘッダーをドラッグして移動 · 詳細は docs/FEATURES.md · LOCAL_STAGING.md を参照。
+            ▼▲ で開閉 · ヘッダーをドラッグして移動 · テスト結果は /tests · 詳細は docs/FEATURES.md · LOCAL_STAGING.md を参照。
           </p>
         </div>
       ) : null}
