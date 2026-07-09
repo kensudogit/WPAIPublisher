@@ -202,7 +202,7 @@ def cmd_status(_args: argparse.Namespace) -> int:
             target = task.get("manifest", {}).get("target", {}).get("type", "?")
         else:
             status, target = "no task", "?"
-        agent_status = "—"
+        agent_status = "-"
         if agent_file.exists():
             agent_status = json.loads(agent_file.read_text(encoding="utf-8")).get("status", "?")
         print(f"{s.name:<20} {status:<22} {agent_status:<12} {target:<12}")

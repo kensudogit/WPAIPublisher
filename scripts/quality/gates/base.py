@@ -17,12 +17,14 @@ class GateResult:
 
 
 def collect_files(wp_dir: Path) -> dict[str, list[Path]]:
+    skip_names = {"preview.html", "preview.php"}
+    files = [f for f in wp_dir.rglob("*") if f.is_file() and f.name not in skip_names]
     return {
-        "html": list(wp_dir.rglob("*.html")) + list(wp_dir.rglob("*.php")),
-        "css": list(wp_dir.rglob("*.css")),
-        "js": list(wp_dir.rglob("*.js")),
-        "php": list(wp_dir.rglob("*.php")),
-        "all": [f for f in wp_dir.rglob("*") if f.is_file()],
+        "html": [f for f in files if f.suffix in (".html", ".php")],
+        "css": [f for f in files if f.suffix == ".css"],
+        "js": [f for f in files if f.suffix == ".js"],
+        "php": [f for f in files if f.suffix == ".php"],
+        "all": files,
     }
 
 

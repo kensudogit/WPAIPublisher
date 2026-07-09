@@ -1,6 +1,8 @@
 # 環境設定（Git管理外）
 config/.env
 config/environments.yaml
+config/ai-providers.yaml
+config/quality-gates.yaml
 
 # Python
 __pycache__/
