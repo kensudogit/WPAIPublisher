@@ -88,14 +88,18 @@ export function SwellPipelinePanel() {
         />
       </div>
       <div className="select-row">
-        <label htmlFor="swell-select">選択 HTML（カンマ区切り）</label>
+        <label htmlFor="swell-select">選択 HTML（カンマ区切り / ワイルドカード可）</label>
         <input
           id="swell-select"
           value={select}
           onChange={(e) => setSelect(e.target.value)}
-          placeholder="hero.html, pages/about.html"
+          placeholder="*.html / pages/*.html / hero.html, about.html"
           disabled={running}
         />
+        <p className="page-lead" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem' }}>
+          例: <code>*.html</code>（直下）· <code>**/*.html</code> または <code>all</code>（再帰すべて）·{' '}
+          <code>pages/*.html</code>
+        </p>
       </div>
       <button
         type="button"

@@ -70,6 +70,39 @@ class TestListHtmlFiles:
         assert comps == []
 
 
+class TestExpandSelectPatterns:
+    def test_star_html_top_level_only(self, tmp_path: Path):
+        (tmp_path / "a.html").write_text("a", encoding="utf-8")
+        nested = tmp_path / "pages"
+        nested.mkdir()
+        (nested / "b.html").write_text("b", encoding="utf-8")
+        from select_files import expand_select_patterns
+
+        got = expand_select_patterns(tmp_path, ["*.html"])
+        assert got == ["a.html"]
+
+    def test_recursive_all(self, tmp_path: Path):
+        (tmp_path / "a.html").write_text("a", encoding="utf-8")
+        nested = tmp_path / "pages"
+        nested.mkdir()
+        (nested / "b.html").write_text("b", encoding="utf-8")
+        from select_files import expand_select_patterns
+
+        got = expand_select_patterns(tmp_path, ["**/*.html"])
+        assert got == ["a.html", "pages/b.html"]
+
+    def test_subdir_glob(self, tmp_path: Path):
+        nested = tmp_path / "pages"
+        nested.mkdir()
+        (nested / "about.html").write_text("a", encoding="utf-8")
+        (nested / "contact.html").write_text("c", encoding="utf-8")
+        (tmp_path / "hero.html").write_text("h", encoding="utf-8")
+        from select_files import expand_select_patterns
+
+        got = expand_select_patterns(tmp_path, ["pages/*.html"])
+        assert got == ["pages/about.html", "pages/contact.html"]
+
+
 class TestCreatePackage:
     def test_creates_manifest_and_copies_files(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         intake_root = tmp_path / "intake"

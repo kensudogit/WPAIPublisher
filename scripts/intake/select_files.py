@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import shutil
@@ -142,6 +143,66 @@ def build_manifest(
     }
 
 
+def expand_select_patterns(source_dir: Path, patterns: list[str]) -> list[str]:
+    """相対パスまたはワイルドカード（*.html, pages/*.html, **/*.html, all）を展開する。"""
+    source_dir = source_dir.resolve()
+    html_rels = [
+        p.relative_to(source_dir).as_posix()
+        for p in sorted(source_dir.rglob("*.html"))
+        if p.is_file() and not p.name.startswith(".")
+    ]
+    if not patterns:
+        return []
+
+    selected: list[str] = []
+    seen: set[str] = set()
+    for raw in patterns:
+        pattern = raw.strip().replace("\\", "/")
+        if not pattern:
+            continue
+        # すべて選択（再帰）
+        if pattern.lower() in {"*", "**", "**/*", "**/*.html", "all", "すべて"}:
+            for rel in html_rels:
+                if rel not in seen:
+                    seen.add(rel)
+                    selected.append(rel)
+            continue
+
+        # ワイルドカード
+        if any(ch in pattern for ch in "*?[]"):
+            # パス区切りなし（例: *.html）→ 直下のファイル名のみ
+            if "/" not in pattern and "**" not in pattern:
+                matched = [
+                    rel
+                    for rel in html_rels
+                    if "/" not in rel and fnmatch.fnmatch(Path(rel).name, pattern)
+                ]
+            else:
+                matched = [rel for rel in html_rels if fnmatch.fnmatch(rel, pattern)]
+            if not matched:
+                raise FileNotFoundError(f"ワイルドカードに一致する HTML がありません: {pattern}")
+            for rel in matched:
+                if rel not in seen:
+                    seen.add(rel)
+                    selected.append(rel)
+            continue
+
+        # 通常の相対パス
+        path = (source_dir / pattern).resolve()
+        try:
+            path.relative_to(source_dir)
+        except ValueError as e:
+            raise ValueError(f"フォルダ外のファイルは指定できません: {pattern}") from e
+        if not path.exists() or path.suffix.lower() != ".html":
+            raise FileNotFoundError(f"HTMLファイルが見つかりません: {pattern}")
+        rel = path.relative_to(source_dir).as_posix()
+        if rel not in seen:
+            seen.add(rel)
+            selected.append(rel)
+
+    return selected
+
+
 def create_package(
     source_dir: Path,
     selected_rels: list[str],
@@ -156,16 +217,8 @@ def create_package(
     if not source_dir.is_dir():
         raise FileNotFoundError(f"ソースフォルダがありません: {source_dir}")
 
-    selected: list[Path] = []
-    for rel in selected_rels:
-        path = (source_dir / rel).resolve()
-        try:
-            path.relative_to(source_dir)
-        except ValueError as e:
-            raise ValueError(f"フォルダ外のファイルは指定できません: {rel}") from e
-        if not path.exists() or path.suffix.lower() != ".html":
-            raise FileNotFoundError(f"HTMLファイルが見つかりません: {rel}")
-        selected.append(path)
+    expanded = expand_select_patterns(source_dir, selected_rels)
+    selected: list[Path] = [(source_dir / rel).resolve() for rel in expanded]
 
     if not selected:
         raise ValueError("HTMLファイルが選択されていません")
@@ -199,7 +252,8 @@ def create_package(
         json.dumps(
             {
                 "source_dir": str(source_dir),
-                "selected": selected_rels,
+                "patterns": selected_rels,
+                "selected": expanded,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
             indent=2,
@@ -224,7 +278,7 @@ def main() -> int:
         "--select",
         action="append",
         required=True,
-        help="選択する HTML の相対パス（複数可）",
+        help="選択する HTML の相対パスまたはワイルドカード（例: *.html, pages/*.html, **/*.html）",
     )
     p_create.add_argument("--package-name", help="intake パッケージ名")
     p_create.add_argument("--target-type", default="page", choices=["page", "block", "theme", "template-part", "custom-css"])
