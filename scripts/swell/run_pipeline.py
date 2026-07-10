@@ -105,16 +105,22 @@ def main() -> int:
     if rc != 0:
         return _fail(steps, session_id, args.json, out)
 
-    # 3. validate（PHP 等。失敗しても SWELL 簡易 validation があるので続行可）
+    # 3. validate（失敗してもレポートまで進める。deploy は valid 必須）
     rc, out = run([py, str(ROOT / "wpaipublish.py"), "validate", "run", session_id])
     steps.append({"step": "validate", "ok": rc == 0})
+    validation_errors: list[str] = []
+    validation_path = ROOT / "output" / session_id / "validation.json"
+    if validation_path.exists():
+        try:
+            vdata = json.loads(validation_path.read_text(encoding="utf-8"))
+            validation_errors = list(vdata.get("errors") or [])
+        except Exception:  # noqa: BLE001
+            pass
 
-    # 4. deploy staging
+    # 4. deploy staging（失敗しても後続へ。Railway では WP 実体が無くてもスナップショット可）
     if not args.skip_deploy:
         rc, out = run([py, str(ROOT / "wpaipublish.py"), "deploy", "staging", session_id])
-        steps.append({"step": "deploy_staging", "ok": rc == 0})
-        if rc != 0:
-            return _fail(steps, session_id, args.json, out)
+        steps.append({"step": "deploy_staging", "ok": rc == 0, "detail": out[-800:] if rc != 0 else ""})
 
     # 5. visual
     if not args.skip_visual:
@@ -122,7 +128,7 @@ def main() -> int:
         if args.visual_update:
             vcmd.append("--update")
         rc, out = run(vcmd)
-        steps.append({"step": "visual", "ok": rc == 0})
+        steps.append({"step": "visual", "ok": rc == 0, "detail": out[-800:] if rc != 0 else ""})
 
     # 6. git
     if not args.skip_git:
@@ -142,12 +148,20 @@ def main() -> int:
     rc, out = run([py, str(ROOT / "scripts" / "report" / "generate_report.py"), session_id])
     steps.append({"step": "report", "ok": rc == 0})
 
+    core_ok = all(s["ok"] for s in steps if s["step"] in {"analyze", "swell_convert", "report"})
     result = {
         "session_id": session_id,
         "steps": steps,
-        "ok": all(s["ok"] for s in steps if s["step"] in {"analyze", "swell_convert", "report"}),
+        "ok": core_ok,
         "report": str(ROOT / "output" / session_id / "change_report.md"),
+        "validation_errors": validation_errors,
     }
+    if not core_ok and not result.get("error"):
+        failed = [s["step"] for s in steps if not s["ok"] and s["step"] in {"analyze", "swell_convert", "report"}]
+        result["error"] = f"必須ステップ失敗: {', '.join(failed)}"
+    elif validation_errors and not any(s["step"] == "deploy_staging" and s["ok"] for s in steps):
+        # 検証 NG で deploy できなかった場合は UI 向けに明示（全体 ok はコア成功なら true）
+        result["warning"] = "検証エラーのためデプロイをスキップ/失敗: " + "; ".join(validation_errors[:5])
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False))

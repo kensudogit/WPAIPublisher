@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     markdown: await readText(join(base, 'change_report.md')),
     structure: await readJson(join(base, 'structure.json')),
     visual: await readJson(join(base, 'visual_regression.json')),
+    validation: await readJson(join(base, 'validation.json')),
   })
 }
 

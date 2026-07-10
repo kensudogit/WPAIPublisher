@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 type PipelineResult = {
   session_id?: string
   ok?: boolean
-  steps?: { step: string; ok: boolean }[]
+  steps?: { step: string; ok: boolean; detail?: string }[]
   report?: string
   error?: string
+  warning?: string
+  validation_errors?: string[]
   source_dir?: string
 }
 
@@ -24,6 +26,11 @@ type ReportPayload = {
   visual?: {
     passed?: boolean
     results?: { viewport: string; passed: boolean; diffPercent?: number }[]
+  } | null
+  validation?: {
+    valid?: boolean
+    errors?: string[]
+    warnings?: string[]
   } | null
 }
 
@@ -83,6 +90,10 @@ export function SwellPipelinePanel() {
       if (!res.ok) throw new Error(data.error || 'pipeline failed')
       setResult(data)
       if (data.ok === false && data.error) setError(String(data.error))
+      else if (data.warning) setError(String(data.warning))
+      else if (Array.isArray(data.validation_errors) && data.validation_errors.length) {
+        setError('検証警告: ' + data.validation_errors.join('; '))
+      }
       if (data.session_id) {
         const r = await fetch(`/api/swell?session=${encodeURIComponent(data.session_id)}`)
         if (r.ok) setReport(await r.json())
@@ -135,6 +146,10 @@ export function SwellPipelinePanel() {
       if (!res.ok) throw new Error(data.error || 'pipeline failed')
       setResult(data)
       if (data.ok === false && data.error) setError(String(data.error))
+      else if (data.warning) setError(String(data.warning))
+      else if (Array.isArray(data.validation_errors) && data.validation_errors.length) {
+        setError('検証警告: ' + data.validation_errors.join('; '))
+      }
       if (data.session_id) {
         const r = await fetch(`/api/swell?session=${encodeURIComponent(data.session_id)}`)
         if (r.ok) setReport(await r.json())
@@ -218,7 +233,10 @@ export function SwellPipelinePanel() {
       </div>
 
       {error && (
-        <pre className="select-msg err" style={{ whiteSpace: 'pre-wrap' }}>
+        <pre
+          className={result?.ok ? 'select-msg' : 'select-msg err'}
+          style={{ whiteSpace: 'pre-wrap', color: result?.ok ? '#8a6d00' : undefined }}
+        >
           {error}
         </pre>
       )}
@@ -232,9 +250,21 @@ export function SwellPipelinePanel() {
             {(result.steps || []).map((s) => (
               <li key={s.step}>
                 [{s.ok ? 'OK' : 'NG'}] {s.step}
+                {s.detail ? <small style={{ display: 'block', opacity: 0.8 }}>{s.detail}</small> : null}
               </li>
             ))}
           </ul>
+          {report?.validation && (
+            <p style={{ fontSize: '0.85rem' }}>
+              検証: {report.validation.valid ? 'OK' : 'NG'}
+              {(report.validation.warnings || []).length
+                ? ` · 警告: ${(report.validation.warnings || []).join('; ')}`
+                : ''}
+              {(report.validation.errors || []).length
+                ? ` · エラー: ${(report.validation.errors || []).join('; ')}`
+                : ''}
+            </p>
+          )}
           {result.session_id && (
             <button type="button" className="btn" onClick={() => void loadReport(result.session_id!)}>
               レポート再読込

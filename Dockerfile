@@ -33,7 +33,7 @@ ENV PYTHONUTF8=1
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip python3-venv \
+  && apt-get install -y --no-install-recommends python3 python3-pip python3-venv php-cli \
   && rm -rf /var/lib/apt/lists/* \
   && ln -sf /usr/bin/python3 /usr/local/bin/python
 
@@ -54,6 +54,7 @@ COPY --chown=nextjs:nodejs intake/example ./intake/example
 COPY --chown=nextjs:nodejs intake/samples ./intake/samples
 RUN mkdir -p /workspace/output/test-results /output/test-results \
     /workspace/intake/incoming /workspace/intake/uploads \
+    /workspace/deployments /workspace/staging \
   && python3 scripts/test/run_tests.py run \
   && cp -a /workspace/output/test-results/. /output/test-results/ \
   && chown -R nextjs:nodejs /workspace /output

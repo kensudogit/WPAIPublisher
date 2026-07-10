@@ -13,8 +13,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from lib.config import get_output_dir, load_config  # noqa: E402
 
 
-def check_php_syntax(php_files: list[Path]) -> list[str]:
-    errors = []
+def check_php_syntax(php_files: list[Path]) -> tuple[list[str], list[str]]:
+    """Returns (errors, warnings). Missing php CLI is a warning, not a hard fail."""
+    errors: list[str] = []
+    warnings: list[str] = []
     for f in php_files:
         try:
             result = subprocess.run(
@@ -26,9 +28,9 @@ def check_php_syntax(php_files: list[Path]) -> list[str]:
             if result.returncode != 0:
                 errors.append(f"PHP構文エラー: {f.name} - {result.stderr.strip()}")
         except FileNotFoundError:
-            errors.append("php コマンドが見つかりません（PHP構文チェックをスキップ）")
+            warnings.append("php コマンドが見つかりません（PHP構文チェックをスキップ）")
             break
-    return errors
+    return errors, warnings
 
 
 def check_required_files(wp_dir: Path, target_type: str, *, swell: bool = False) -> list[str]:
@@ -111,12 +113,16 @@ def main() -> int:
 
     php_files = list(wp_dir.rglob("*.php"))
     if php_files:
+        run_php = True
         try:
             config = load_config()
-            if config.get("validation", {}).get("php_lint", True):
-                errors.extend(check_php_syntax(php_files))
+            run_php = config.get("validation", {}).get("php_lint", True)
         except FileNotFoundError:
-            errors.extend(check_php_syntax(php_files))
+            run_php = True
+        if run_php:
+            php_errors, php_warnings = check_php_syntax(php_files)
+            errors.extend(php_errors)
+            warnings.extend(php_warnings)
 
     warnings.extend(check_security(wp_dir))
 
