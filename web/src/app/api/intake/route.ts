@@ -1,56 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { spawn } from 'child_process'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { join, dirname } from 'path'
+import { randomBytes } from 'crypto'
+import { looksLikeWindowsPath, repoRoot, runPython } from '@/lib/repoRoot'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-function repoRoot(): string {
-  const candidates = [
-    join(process.cwd(), '..'),
-    process.cwd(),
-    '/app',
-  ]
-  for (const dir of candidates) {
-    if (existsSync(join(dir, 'wpaipublish.py'))) return dir
-  }
-  return join(process.cwd(), '..')
-}
+async function saveUploads(form: FormData): Promise<{ dir: string; files: string[] }> {
+  const root = repoRoot()
+  const uploadId = `upload-${Date.now()}-${randomBytes(3).toString('hex')}`
+  const dir = join(root, 'intake', 'uploads', uploadId)
+  mkdirSync(dir, { recursive: true })
 
-function runPython(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
-    const root = repoRoot()
-    const py = process.env.PYTHON_BIN || 'python'
-    const child = spawn(py, args, { cwd: root, env: process.env })
-    let stdout = ''
-    let stderr = ''
-    child.stdout.on('data', (d) => {
-      stdout += d.toString()
-    })
-    child.stderr.on('data', (d) => {
-      stderr += d.toString()
-    })
-    child.on('close', (code) => {
-      resolve({ code: code ?? 1, stdout, stderr })
-    })
-    child.on('error', (err) => {
-      resolve({ code: 1, stdout, stderr: String(err) })
-    })
-  })
+  const files: string[] = []
+  for (const entry of form.getAll('files')) {
+    if (typeof entry === 'string') continue
+    const file = entry as File
+    const relRaw =
+      (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+    const parts = relRaw.replace(/\\/g, '/').split('/').filter(Boolean)
+    const relPath = parts.length > 1 ? parts.slice(1).join('/') : parts[0] || file.name
+    const dest = join(dir, relPath)
+    mkdirSync(dirname(dest), { recursive: true })
+    writeFileSync(dest, Buffer.from(await file.arrayBuffer()))
+    files.push(relPath)
+  }
+  return { dir, files }
 }
 
 export async function GET(req: NextRequest) {
-  const dir = req.nextUrl.searchParams.get('dir')
-  if (!dir) {
-    return NextResponse.json({ error: 'dir query required' }, { status: 400 })
+  const sample = req.nextUrl.searchParams.get('sample')
+  const dirParam = req.nextUrl.searchParams.get('dir')
+
+  const root = repoRoot()
+  const script = join(root, 'scripts', 'intake', 'select_files.py')
+
+  if (!existsSync(script)) {
+    return NextResponse.json(
+      {
+        error: `select_files.py が見つかりません（repo=${root}）。Railway を再デプロイしてください。`,
+        repo_root: root,
+        script,
+      },
+      { status: 503 },
+    )
   }
 
-  const script = join(repoRoot(), 'scripts', 'intake', 'select_files.py')
+  let dir = dirParam || ''
+  if (sample === '1' || sample === 'true') {
+    dir = join(root, 'intake', 'samples', 'multi-html')
+  }
+
+  if (!dir) {
+    return NextResponse.json(
+      {
+        error:
+          'dir が未指定です。Railway では C:\\... は使えません。フォルダをアップロードするか ?sample=1 を使ってください。',
+      },
+      { status: 400 },
+    )
+  }
+
+  if (looksLikeWindowsPath(dir) && !existsSync(dir)) {
+    return NextResponse.json(
+      {
+        error:
+          `サーバーからローカルパスにアクセスできません: ${dir}\n` +
+          'Railway では PC の C:\\... は見えません。フォルダをアップロードするか「サンプル一覧」を使ってください。',
+        hint: 'ローカル CLI: python wpaipublish.py intake list C:\\test',
+      },
+      { status: 400 },
+    )
+  }
+
+  if (!existsSync(dir)) {
+    return NextResponse.json({ error: `フォルダが見つかりません: ${dir}` }, { status: 400 })
+  }
+
   const result = await runPython([script, 'list', dir, '--json'])
   if (result.code !== 0) {
     return NextResponse.json(
-      { error: result.stderr || result.stdout || 'list failed' },
+      { error: result.stderr || result.stdout || 'list failed', repo_root: root },
       { status: 400 },
     )
   }
@@ -62,54 +93,140 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as {
-    source_dir?: string
-    select?: string[]
-    target_type?: string
-    theme_slug?: string
-    tool?: string
-    notes?: string
-    package_name?: string
-    session_id?: string
-    agent?: boolean
+  const root = repoRoot()
+  const script = join(root, 'scripts', 'intake', 'start_pipeline.py')
+  if (!existsSync(script)) {
+    return NextResponse.json(
+      {
+        error: `start_pipeline.py が見つかりません（repo=${root}）`,
+        repo_root: root,
+      },
+      { status: 503 },
+    )
   }
 
-  if (!body.source_dir || !body.select?.length) {
-    return NextResponse.json({ error: 'source_dir and select[] required' }, { status: 400 })
+  const contentType = req.headers.get('content-type') || ''
+  let sourceDir = ''
+  let select: string[] = []
+  let targetType = 'page'
+  let themeSlug = 'custom-theme'
+  let tool = 'other'
+  let notes = ''
+  let packageName = ''
+  let sessionId = ''
+  let agent = false
+
+  if (contentType.includes('multipart/form-data')) {
+    const form = await req.formData()
+    const uploaded = await saveUploads(form)
+    sourceDir = uploaded.dir
+    const selectRaw = String(form.get('select') || '')
+    if (selectRaw.trim()) {
+      select = selectRaw.split(',').map((s) => s.trim()).filter(Boolean)
+    } else {
+      // アップロード内の html をすべて
+      select = uploaded.files.filter((f) => f.toLowerCase().endsWith('.html'))
+      if (!select.length) select = ['**/*.html']
+    }
+    targetType = String(form.get('target_type') || 'page')
+    themeSlug = String(form.get('theme_slug') || 'custom-theme')
+    tool = String(form.get('tool') || 'other')
+    notes = String(form.get('notes') || '')
+    packageName = String(form.get('package_name') || '')
+    sessionId = String(form.get('session_id') || '')
+    agent = String(form.get('agent') || '') === 'true'
+
+    if (!uploaded.files.length) {
+      return NextResponse.json({ error: 'アップロードファイルがありません' }, { status: 400 })
+    }
+  } else {
+    const body = (await req.json()) as {
+      source_dir?: string
+      select?: string[]
+      target_type?: string
+      theme_slug?: string
+      tool?: string
+      notes?: string
+      package_name?: string
+      session_id?: string
+      agent?: boolean
+      use_sample?: boolean
+    }
+
+    if (body.use_sample) {
+      sourceDir = join(root, 'intake', 'samples', 'multi-html')
+      select = body.select?.length ? body.select : ['**/*.html']
+    } else {
+      sourceDir = body.source_dir || ''
+      select = body.select || []
+    }
+    targetType = body.target_type || 'page'
+    themeSlug = body.theme_slug || 'custom-theme'
+    tool = body.tool || 'other'
+    notes = body.notes || ''
+    packageName = body.package_name || ''
+    sessionId = body.session_id || ''
+    agent = !!body.agent
+
+    if (!sourceDir || !select.length) {
+      return NextResponse.json(
+        {
+          error:
+            'source_dir と select[] が必要です。Railway ではローカルパスは使えません。アップロードまたはサンプル実行を使ってください。',
+        },
+        { status: 400 },
+      )
+    }
+
+    if (looksLikeWindowsPath(sourceDir) && !existsSync(sourceDir)) {
+      return NextResponse.json(
+        {
+          error:
+            `サーバーからローカルパスにアクセスできません: ${sourceDir}\n` +
+            'フォルダをアップロードするか、ローカル CLI を使ってください。',
+          hint: 'python wpaipublish.py intake pipeline C:\\test --select "*.html"',
+        },
+        { status: 400 },
+      )
+    }
   }
 
-  const script = join(repoRoot(), 'scripts', 'intake', 'start_pipeline.py')
   const args = [
     script,
-    body.source_dir,
+    sourceDir,
     '--target-type',
-    body.target_type || 'page',
+    targetType,
     '--theme-slug',
-    body.theme_slug || 'custom-theme',
+    themeSlug,
     '--tool',
-    body.tool || 'other',
+    tool,
     '--json',
   ]
-  for (const sel of body.select) {
+  for (const sel of select) {
     args.push('--select', sel)
   }
-  if (body.package_name) args.push('--package-name', body.package_name)
-  if (body.session_id) args.push('--session-id', body.session_id)
-  if (body.notes) args.push('--notes', body.notes)
-  if (body.agent) args.push('--agent')
+  if (packageName) args.push('--package-name', packageName)
+  if (sessionId) args.push('--session-id', sessionId)
+  if (notes) args.push('--notes', notes)
+  if (agent) args.push('--agent')
 
   const result = await runPython(args)
   if (result.code !== 0) {
     return NextResponse.json(
-      { error: result.stderr || result.stdout || 'pipeline failed', code: result.code },
+      {
+        error: result.stderr || result.stdout || 'pipeline failed',
+        code: result.code,
+        repo_root: root,
+        source_dir: sourceDir,
+      },
       { status: 500 },
     )
   }
 
   try {
     const data = JSON.parse(result.stdout.trim().split('\n').filter(Boolean).at(-1) || '{}')
-    return NextResponse.json(data)
+    return NextResponse.json({ ...data, source_dir: sourceDir })
   } catch {
-    return NextResponse.json({ ok: true, raw: result.stdout })
+    return NextResponse.json({ ok: true, raw: result.stdout, source_dir: sourceDir })
   }
 }

@@ -7,7 +7,7 @@ export default function PipelinePage() {
       <h1 className="page-title">HTML 選択 → パイプライン</h1>
       <p className="page-lead">
         複数の HTML が入ったフォルダから処理対象を選び、intake 作成から convert prepare まで実行します。
-        同名の CSS/JS や HTML 内の相対参照資産も自動で同梱します。
+        Railway 上ではローカルパスではなく、フォルダのアップロードまたはサンプル一覧を使います。
       </p>
 
       <div className="panel">

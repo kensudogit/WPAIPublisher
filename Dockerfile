@@ -53,6 +53,7 @@ COPY --chown=nextjs:nodejs tests ./tests
 COPY --chown=nextjs:nodejs intake/example ./intake/example
 COPY --chown=nextjs:nodejs intake/samples ./intake/samples
 RUN mkdir -p /workspace/output/test-results /output/test-results \
+    /workspace/intake/incoming /workspace/intake/uploads \
   && python3 scripts/test/run_tests.py run \
   && cp -a /workspace/output/test-results/. /output/test-results/ \
   && chown -R nextjs:nodejs /workspace /output

@@ -1,64 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { spawn } from 'child_process'
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { join, dirname } from 'path'
 import { randomBytes } from 'crypto'
+import { looksLikeWindowsPath, repoRoot, runPython } from '@/lib/repoRoot'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-function repoRoot(): string {
-  const envRoot = process.env.WPAI_ROOT
-  const candidates = [
-    envRoot,
-    '/workspace',
-    join(process.cwd(), '..'),
-    process.cwd(),
-    '/app',
-  ].filter(Boolean) as string[]
-  for (const dir of candidates) {
-    if (
-      existsSync(join(dir, 'wpaipublish.py')) ||
-      existsSync(join(dir, 'scripts', 'swell', 'run_pipeline.py'))
-    ) {
-      return dir
-    }
-  }
-  return envRoot || '/workspace'
-}
-
-function runPython(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
-    const py = process.env.PYTHON_BIN || 'python3'
-    const child = spawn(py, args, {
-      cwd: repoRoot(),
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
-    })
-    let stdout = ''
-    let stderr = ''
-    child.stdout.on('data', (d) => {
-      stdout += d.toString()
-    })
-    child.stderr.on('data', (d) => {
-      stderr += d.toString()
-    })
-    child.on('close', (code) => {
-      resolve({ code: code ?? 1, stdout, stderr })
-    })
-    child.on('error', (err) => {
-      resolve({
-        code: 1,
-        stdout,
-        stderr: `${err}\nPython / パイプライン実行環境が見つかりません。`,
-      })
-    })
-  })
-}
-
-function looksLikeWindowsPath(p: string): boolean {
-  return /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith('\\\\')
-}
 
 export async function GET(req: NextRequest) {
   const session = req.nextUrl.searchParams.get('session')
