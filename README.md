@@ -63,6 +63,7 @@ npm run dev
 | `/` | ブランドヒーロー + 標準装備 |
 | `/dashboard` | セッション一覧 + パイプライン |
 | `/pipeline` | 複数 HTML から選択してパイプライン開始 |
+| `/swell` | SWELL 一連パイプライン + 変更レポート |
 | `/tests` | ユニットテスト実行・結果確認 |
 | `/guide` | ドラッグ可能な利用手順パネル |
 
@@ -116,6 +117,30 @@ python wpaipublish.py intake pipeline intake/samples/multi-html \
 
 Web UI: `/pipeline`（フォルダパスを入力 → チェック選択 → パイプライン開始）
 
+### 3b. SWELL 一連パイプライン（推奨）
+
+HTML 解析 → SWELL 子テーマ／ブロック／テンプレート変換 → 検証 → ステージングデプロイ → Playwright 差分 → Git → 変更レポート。
+
+```bash
+# 一括実行（サンプル）
+python wpaipublish.py swell pipeline swell-demo \
+  --source-dir intake/samples/multi-html \
+  --select hero.html \
+  --visual-update \
+  --skip-git
+
+# Git コミット & プッシュ
+python wpaipublish.py git commit swell-demo --push
+# または PR 付き
+python wpaipublish.py git commit swell-demo --push --pr
+
+# レポート再生成
+python wpaipublish.py report generate swell-demo
+```
+
+Web UI: `/swell`  
+成果物: `output/<session>/structure.json` · `wordpress/` · `visual/` · `change_report.md`
+
 ### 4. エージェント自律実行（推奨）
 
 ```bash
@@ -161,6 +186,10 @@ python wpaipublish.py status
 |---------|------|
 | `intake list / select / pipeline` | 複数HTMLから選択して intake〜prepare |
 | `intake validate` | AI出力バリデーション |
+| `analyze` | HTML 構造・コンポーネント解析 → `structure.json` |
+| `swell convert / pipeline` | SWELL 子テーマ変換〜デプロイ〜レポート一連実行 |
+| `git commit / push` | 変換結果のコミット・プッシュ（任意で PR） |
+| `report generate` | 変更レポート（MD/JSON）生成 |
 | `convert prepare / mark-done` | 変換セッション管理 |
 | `validate run` | 基本検証（PHP構文等） |
 | `quality run` | 品質ゲート（5種） |

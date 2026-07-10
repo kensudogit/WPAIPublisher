@@ -15,6 +15,9 @@ wordpress:
   # テーマ・プラグインの配置先（リポジトリ内パス）
   theme_path: "wp-content/themes/custom-theme"
   blocks_path: "wp-content/themes/custom-theme/blocks"
+  # SWELL 子テーマ配置先
+  swell_child_path: "wp-content/themes/swell-child"
+  parent_theme: "swell"
 
 environments:
   staging:

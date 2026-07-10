@@ -5,42 +5,38 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 const techStack = [
   'Python · CLI',
   'Claude Code',
+  'SWELL',
   'WP-CLI · REST',
   'Playwright',
   'Git · Actions',
-  'RAG · TF-IDF',
 ] as const
 
 const archDiagram = `Codex / ChatGPT / Copilot
     │ HTML · CSS · JS
     ▼
-intake/incoming/          manifest.json
-    │ validate + RAG
+analyze → structure.json   コンポーネント抽出
+    │
     ▼
-Claude Code 変換          prompts/convert-to-wp.md
+SWELL convert              子テーマ / blocks / parts
     │ output/<session>/
     ▼
-品質ゲート + Playwright   quality_gates.json
+deploy + Playwright差分    visual/diff/
     │
     ▼
-Git PR → staging → main   WP-CLI / REST / SCP
-    │
-    ▼
-WordPress Staging / Prod  ロールバック可`
+git commit/push + report   change_report.md`
 
 const recommendedFlow = [
   '初回のみ: knowledge index --rebuild + ローカル Docker staging',
-  '複数HTML: intake pipeline <folder> --select … --session-id <id>',
-  '単一: convert prepare … → agent run <id>',
-  'Claude Code で CLAUDE_INSTRUCTIONS.md を実行（コード手書き不要）',
-  'convert mark-done → agent resume（品質〜staging まで自動）',
-  'localhost:8088 で確認 → agent resume --approve（本番）',
+  'SWELL一括: swell pipeline <id> --source-dir <folder> --select a.html --visual-update',
+  'または: intake pipeline → agent run → Claude Code → agent resume',
+  '確認: localhost:8088 / change_report.md',
+  'git commit <id> --push → 本番は --approve / --confirm',
 ] as const
 
 const steps = [
   {
     title: '0. 推奨フロー（最短・安全）',
-    body: '毎回の手作業を減らし、Agent + ローカル staging を先に使うのが最も安全です。',
+    body: 'SWELL は swell pipeline 一括、汎用 WP は Agent + Claude Code。先にローカル staging で確認します。',
     items: [...recommendedFlow],
   },
   {
@@ -133,6 +129,19 @@ const steps = [
       'test list / test show latest',
       'Web: /tests で実行・履歴・ケース詳細',
       '結果保存先: output/test-results/',
+    ],
+  },
+  {
+    title: '9. SWELL 一連パイプライン',
+    body: '解析→SWELL変換→デプロイ→Playwright差分→Git→変更レポートを一括実行します。',
+    items: [
+      'swell pipeline <id> --source-dir <folder> --select a.html --visual-update',
+      'analyze → structure.json（構造・コンポーネント抽出）',
+      'swell convert → 子テーマ / blocks / template-parts',
+      'deploy staging → visual run（pixelmatch 差分）',
+      'git commit <id> --push（任意 --pr）',
+      'report generate → change_report.md',
+      'Web: /swell · 詳細: docs/SWELL.md',
     ],
   },
 ] as const
@@ -287,9 +296,10 @@ export function UsageGuidePanel() {
               <strong>最短・安全な進め方</strong>
             </div>
             <p>
-              手作業のコマンド列より、<code>intake pipeline</code> → <code>agent run</code> → Claude Code →{' '}
-              <code>agent resume</code> の方がミスが少なく、品質ゲートも飛ばしにくいです。リモート WP の前にローカル
-              Docker staging で確認してください。
+              手作業のコマンド列より、<code>swell pipeline</code>（解析〜レポート一括）または{' '}
+              <code>intake pipeline</code> → <code>agent run</code> → Claude Code → <code>agent resume</code>{' '}
+              の方がミスが少なく、品質ゲートも飛ばしにくいです。リモート WP の前にローカル Docker staging
+              で確認してください。
             </p>
             <ul className="usage-guide-items">
               {recommendedFlow.map((item) => (
@@ -320,7 +330,7 @@ export function UsageGuidePanel() {
           </ol>
 
           <p className="usage-guide-footer">
-            ▼▲ で開閉 · ヘッダーをドラッグして移動 · テスト結果は /tests · 詳細は docs/FEATURES.md · LOCAL_STAGING.md を参照。
+            ▼▲ で開閉 · ヘッダーをドラッグして移動 · SWELL は /swell · docs/SWELL.md · テストは /tests
           </p>
         </div>
       ) : null}

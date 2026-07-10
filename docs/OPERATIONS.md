@@ -81,32 +81,48 @@ ssh $WP_PROD_SSH "cd $WP_PROD_PATH && wp --info"
 
 ## 5. 標準ワークフロー
 
-### 推奨: 最短・安全フロー（Agent + ローカル staging）
+### 推奨: SWELL 一連パイプライン（解析〜レポート）
 
-手作業のコマンド列より、次の順がミスが少なく品質ゲートも飛ばしにくいです。
+SWELL 子テーマ向けは次が一括で最短です。詳細は [SWELL.md](SWELL.md)。
 
 ```bash
 # 初回のみ
 python wpaipublish.py knowledge index --rebuild
 docker compose -f docker-compose.staging.yml up -d
 bash scripts/local/bootstrap_wp.sh   # Git Bash / WSL
+npm install   # pixelmatch / pngjs（Playwright 差分）
 
-# 複数 HTML から選択してセッション作成（単一なら convert prepare）
+# 解析 → SWELL変換 → validate → deploy → visual → report
+python wpaipublish.py swell pipeline swell-demo \
+  --source-dir intake/samples/multi-html \
+  --select hero.html \
+  --visual-update
+
+# Git コミット & プッシュ（任意で --pr）
+python wpaipublish.py git commit swell-demo --push
+
+# レポート再生成
+python wpaipublish.py report generate swell-demo
+# → output/swell-demo/change_report.md
+```
+
+Web: `/swell`
+
+### 推奨: 汎用 WP（Agent + ローカル staging）
+
+Claude Code で汎用ブロック／テーマへ変換する場合:
+
+```bash
 python wpaipublish.py intake pipeline intake/samples/multi-html \
   --select hero.html \
   --session-id hero-20260710 \
   --target-type page
 
-# Agent 開始 → Claude Code で指示ファイルを実行（コード手書き不要）
 python wpaipublish.py agent run hero-20260710
 # … Claude Code で CLAUDE_INSTRUCTIONS.md / convert-to-wp.md を実行 …
 python wpaipublish.py convert mark-done hero-20260710
-
-# 品質ゲート → visual → PR → staging まで再開
 python wpaipublish.py agent resume hero-20260710
 # http://localhost:8088 で確認
-
-# 本番（承認必須）
 python wpaipublish.py agent resume hero-20260710 --approve
 ```
 

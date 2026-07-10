@@ -63,6 +63,8 @@ gates:
     blocking: true
     rules:
       max_diff_pixels: 100
+      max_diff_ratio: 0.02
+      pixel_threshold: 0.1
       threshold: 0.1
       viewports:
         - { width: 1280, height: 720, name: desktop }

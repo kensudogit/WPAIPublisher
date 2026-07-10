@@ -520,20 +520,22 @@ WordPress Staging / Prod  ロールバック可</pre>
         <li>
           <strong>0. 推奨フロー（最短・安全）</strong>
           <p>
-            毎回の手作業を減らし、Agent + ローカル staging を先に使うのが最も安全です。
-            WordPress 向け変換は Claude Code のプロンプトだけでよく（コード手書き不要）、前後の工程は CLI / Agent が担います。
+            SWELL サイト向けは <code>swell pipeline</code> 一括が最短です。汎用 WP 変換は Agent + Claude Code 経路を使います。
+            いずれもリモート WP の前にローカル Docker staging で確認してください。
           </p>
           <ul class="usage-guide-items">
             <li>初回のみ: <code>python wpaipublish.py knowledge index --rebuild</code></li>
             <li>ローカル WP: <code>docker compose -f docker-compose.staging.yml up -d</code> → <code>bash scripts/local/bootstrap_wp.sh</code></li>
             <li>
-              複数 HTML の例:<br>
-              <code>python wpaipublish.py intake pipeline intake/samples/multi-html --select hero.html --session-id hero-20260710</code>
+              <strong>SWELL 一括（推奨）:</strong><br>
+              <code>python wpaipublish.py swell pipeline swell-demo --source-dir intake/samples/multi-html --select hero.html --visual-update</code>
             </li>
-            <li><code>python wpaipublish.py agent run hero-20260710</code> → 表示された指示を Claude Code で実行</li>
-            <li><code>python wpaipublish.py convert mark-done hero-20260710</code></li>
-            <li><code>python wpaipublish.py agent resume hero-20260710</code>（品質〜staging）</li>
-            <li><code>http://localhost:8088</code> で確認 → <code>agent resume hero-20260710 --approve</code>（本番）</li>
+            <li>確認: <code>output/swell-demo/change_report.md</code> · <code>http://localhost:8088</code></li>
+            <li>Git: <code>python wpaipublish.py git commit swell-demo --push</code></li>
+            <li>
+              汎用 WP（Claude Code）:<br>
+              <code>intake pipeline …</code> → <code>agent run</code> → Claude Code → <code>convert mark-done</code> → <code>agent resume</code>
+            </li>
           </ul>
         </li>
 
@@ -589,6 +591,29 @@ WordPress Staging / Prod  ロールバック可</pre>
             <li>サンプル: <code>intake/samples/multi-html/</code>（hero / about / contact）</li>
             <li>生成物: <code>intake/incoming/selected-*</code> と <code>output/&lt;session&gt;/</code></li>
             <li>続き: <code>ai route</code> → <code>convert mark-done</code> → <code>quality run</code> → <code>deploy staging</code></li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>3c. SWELL 一連パイプライン（解析〜レポート）</strong>
+          <p>
+            HTML 解析（構造・コンポーネント抽出）→ SWELL 子テーマ／ブロック／テンプレートへの振り分け変換 →
+            検証 → ステージングデプロイ → Playwright ピクセル差分 → Git コミット／プッシュ → 変更レポート生成までを一括実行できます。
+            詳細は <code>docs/SWELL.md</code>。
+          </p>
+          <ul class="usage-guide-items">
+            <li>
+              一括:<br>
+              <code>python wpaipublish.py swell pipeline swell-demo --source-dir intake/samples/multi-html --select hero.html --visual-update</code>
+            </li>
+            <li>解析のみ: <code>python wpaipublish.py analyze &lt;session&gt;</code> → <code>structure.json</code></li>
+            <li>変換のみ: <code>python wpaipublish.py swell convert &lt;session&gt;</code>（親テーマ <code>swell</code> · 子 <code>swell-child</code>）</li>
+            <li>振り分け: hero/cta/card → <code>blocks/</code> · header/nav/footer → <code>template-parts/</code> · CSS/JS → <code>assets/</code></li>
+            <li>表示確認: <code>visual run &lt;session&gt;</code>（pixelmatch · 差分は <code>visual/diff/</code>）</li>
+            <li>Git: <code>python wpaipublish.py git commit &lt;session&gt; --push</code>（任意 <code>--pr</code>）</li>
+            <li>レポート: <code>python wpaipublish.py report generate &lt;session&gt;</code> → <code>change_report.md</code></li>
+            <li>Web UI: ナビの「SWELL」(<code>/swell</code>) — 実行結果とレポートを表示（既定では Git push なし）</li>
+            <li>初回 visual は <code>--visual-update</code> でベースライン作成</li>
           </ul>
         </li>
 
@@ -697,12 +722,13 @@ WordPress Staging / Prod  ロールバック可</pre>
             <li>処理済み intake は <code>intake/processed/</code> へ移動</li>
             <li>状態確認: <code>python wpaipublish.py status</code></li>
             <li>ユニットテスト: <code>python wpaipublish.py test run</code> · Web: <code>/tests</code></li>
+            <li>SWELL 一連: <code>swell pipeline</code> · Web: <code>/swell</code> · <code>docs/SWELL.md</code></li>
           </ul>
         </li>
       </ol>
 
       <p class="usage-guide-footer">
-        ▼▲ で開閉 · ヘッダーをドラッグして移動 · 詳細は docs/FEATURES.md · OPERATIONS.md · ROLLBACK.md を参照。
+        ▼▲ で開閉 · ヘッダーをドラッグして移動 · 詳細は docs/SWELL.md · FEATURES.md · OPERATIONS.md · ROLLBACK.md を参照。
       </p>
     </div>
   </div>

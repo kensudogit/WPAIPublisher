@@ -21,6 +21,11 @@ WPAIPublisher メインオーケストレーター
   python wpaipublish.py rollback <session_id> production --confirm
   python wpaipublish.py test run
   python wpaipublish.py test list
+  python wpaipublish.py analyze <session_id>
+  python wpaipublish.py swell convert <session_id>
+  python wpaipublish.py swell pipeline --source-dir <folder> --select a.html
+  python wpaipublish.py git commit <session_id> --push
+  python wpaipublish.py report generate <session_id>
   python wpaipublish.py status
 """
 
@@ -185,6 +190,24 @@ def cmd_git(args: argparse.Namespace) -> int:
         if args.base:
             cmd.extend(["--base", args.base])
         return run_script(cmd)
+    if args.action in {"commit", "push"}:
+        if not args.session_id:
+            print("ERROR: session_id が必要です", file=sys.stderr)
+            return 1
+        cmd = [sys.executable, str(SCRIPTS / "git" / "commit_push.py"), args.session_id]
+        if args.message:
+            cmd.extend(["--message", args.message])
+        if args.branch:
+            cmd.extend(["--branch", args.branch])
+        if args.action == "commit" and not args.push:
+            cmd.append("--no-push")
+        if args.pr:
+            cmd.append("--pr")
+        if args.base:
+            cmd.extend(["--base", args.base])
+        if args.json:
+            cmd.append("--json")
+        return run_script(cmd)
     if args.action == "deploy":
         bash_cmd = ["bash", str(SCRIPTS / "git" / "deploy_via_git.sh"), args.env, args.session_id]
         if args.confirm:
@@ -294,6 +317,70 @@ def cmd_test(args: argparse.Namespace) -> int:
     return run_script(cmd)
 
 
+def cmd_analyze(args: argparse.Namespace) -> int:
+    cmd = [sys.executable, str(SCRIPTS / "analyze" / "html_structure.py"), args.target]
+    if args.out:
+        cmd.extend(["--out", args.out])
+    if args.json:
+        cmd.append("--json")
+    return run_script(cmd)
+
+
+def cmd_swell(args: argparse.Namespace) -> int:
+    session_id = args.session_id or getattr(args, "session_id_opt", None)
+    if args.action == "convert":
+        if not session_id:
+            print("ERROR: session_id が必要です", file=sys.stderr)
+            return 1
+        cmd = [
+            sys.executable,
+            str(SCRIPTS / "swell" / "convert_to_swell.py"),
+            session_id,
+            "--theme-slug",
+            args.theme_slug,
+            "--parent-theme",
+            args.parent_theme,
+        ]
+        if args.json:
+            cmd.append("--json")
+        return run_script(cmd)
+
+    if args.action == "pipeline":
+        cmd = [sys.executable, str(SCRIPTS / "swell" / "run_pipeline.py")]
+        if session_id:
+            cmd.append(session_id)
+        if args.source_dir:
+            cmd.extend(["--source-dir", args.source_dir])
+        for sel in args.select or []:
+            cmd.extend(["--select", sel])
+        cmd.extend(["--theme-slug", args.theme_slug, "--parent-theme", args.parent_theme])
+        if args.skip_git:
+            cmd.append("--skip-git")
+        if args.skip_deploy:
+            cmd.append("--skip-deploy")
+        if args.skip_visual:
+            cmd.append("--skip-visual")
+        if args.push:
+            cmd.append("--push")
+        if args.pr:
+            cmd.append("--pr")
+        if args.visual_update:
+            cmd.append("--visual-update")
+        if args.json:
+            cmd.append("--json")
+        return run_script(cmd)
+
+    print(f"不明な swell アクション: {args.action}", file=sys.stderr)
+    return 1
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    cmd = [sys.executable, str(SCRIPTS / "report" / "generate_report.py"), args.session_id]
+    if args.json:
+        cmd.append("--json")
+    return run_script(cmd)
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     # DATABASE_URL がある場合は Postgres 優先
     try:
@@ -398,11 +485,42 @@ def main() -> int:
     p_visual.add_argument("--json", action="store_true")
 
     p_git = sub.add_parser("git", help="Git CI/CD")
-    p_git.add_argument("action", choices=["pr", "deploy", "rollback"])
+    p_git.add_argument("action", choices=["pr", "commit", "push", "deploy", "rollback"])
     p_git.add_argument("session_id", nargs="?")
     p_git.add_argument("--env", default="staging", choices=["staging", "production"])
     p_git.add_argument("--base", default="staging")
     p_git.add_argument("--confirm", action="store_true")
+    p_git.add_argument("--message", "-m", help="コミットメッセージ")
+    p_git.add_argument("--branch", help="ブランチ名")
+    p_git.add_argument("--push", action="store_true", help="commit 後に push")
+    p_git.add_argument("--pr", action="store_true", help="commit/push 後に PR 作成")
+    p_git.add_argument("--json", action="store_true")
+
+    p_analyze = sub.add_parser("analyze", help="HTML 構造・コンポーネント解析")
+    p_analyze.add_argument("target", help="セッションID または HTML フォルダ")
+    p_analyze.add_argument("--out", help="出力 JSON")
+    p_analyze.add_argument("--json", action="store_true")
+
+    p_swell = sub.add_parser("swell", help="SWELL 変換・一連パイプライン")
+    p_swell.add_argument("action", choices=["convert", "pipeline"])
+    p_swell.add_argument("session_id", nargs="?", help="セッションID")
+    p_swell.add_argument("--session-id", dest="session_id_opt", help="セッションID（別名）")
+    p_swell.add_argument("--source-dir", help="HTML フォルダ（pipeline）")
+    p_swell.add_argument("--select", action="append", help="HTML 相対パス")
+    p_swell.add_argument("--theme-slug", default="swell-child")
+    p_swell.add_argument("--parent-theme", default="swell")
+    p_swell.add_argument("--skip-git", action="store_true")
+    p_swell.add_argument("--skip-deploy", action="store_true")
+    p_swell.add_argument("--skip-visual", action="store_true")
+    p_swell.add_argument("--push", action="store_true")
+    p_swell.add_argument("--pr", action="store_true")
+    p_swell.add_argument("--visual-update", action="store_true")
+    p_swell.add_argument("--json", action="store_true")
+
+    p_report = sub.add_parser("report", help="変更レポート生成")
+    p_report.add_argument("action", choices=["generate"])
+    p_report.add_argument("session_id")
+    p_report.add_argument("--json", action="store_true")
 
     p_knowledge = sub.add_parser("knowledge", help="RAGナレッジベース")
     p_knowledge.add_argument("action", choices=["index", "retrieve"])
@@ -465,6 +583,9 @@ def main() -> int:
         "quality": cmd_quality,
         "visual": cmd_visual,
         "git": cmd_git,
+        "analyze": cmd_analyze,
+        "swell": cmd_swell,
+        "report": cmd_report,
         "knowledge": cmd_knowledge,
         "ai": cmd_ai,
         "agent": cmd_agent,

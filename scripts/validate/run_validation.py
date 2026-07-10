@@ -31,8 +31,24 @@ def check_php_syntax(php_files: list[Path]) -> list[str]:
     return errors
 
 
-def check_required_files(wp_dir: Path, target_type: str) -> list[str]:
+def check_required_files(wp_dir: Path, target_type: str, *, swell: bool = False) -> list[str]:
     errors = []
+    # SWELL 子テーマ: style.css + functions.php + (blocks|content)
+    if swell or ((wp_dir / "functions.php").exists() and (wp_dir / "style.css").exists()):
+        if not (wp_dir / "style.css").exists():
+            errors.append("style.css（子テーマヘッダー）が見つかりません")
+        if not (wp_dir / "functions.php").exists():
+            errors.append("functions.php が見つかりません")
+        has_content = (
+            list(wp_dir.glob("**/block.json"))
+            or list(wp_dir.glob("content.html"))
+            or list(wp_dir.glob("templates/*.html"))
+            or list(wp_dir.glob("**/*.php"))
+        )
+        if not has_content:
+            errors.append("ブロック / テンプレート / コンテンツが見つかりません")
+        return errors
+
     if target_type == "block":
         if not list(wp_dir.glob("block.json")) and not list(wp_dir.glob("**/block.json")):
             errors.append("block.json が見つかりません")
@@ -41,10 +57,10 @@ def check_required_files(wp_dir: Path, target_type: str) -> list[str]:
     elif target_type == "theme":
         if not (wp_dir / "style.css").exists():
             errors.append("style.css（テーマヘッダー）が見つかりません")
-        if not (wp_dir / "index.php").exists():
-            errors.append("index.php が見つかりません")
+        if not (wp_dir / "index.php").exists() and not (wp_dir / "functions.php").exists():
+            errors.append("index.php / functions.php が見つかりません")
     elif target_type == "page":
-        if not list(wp_dir.glob("*.html")) and not list(wp_dir.glob("*.php")):
+        if not list(wp_dir.glob("*.html")) and not list(wp_dir.glob("*.php")) and not list(wp_dir.glob("**/block.json")):
             errors.append("ページコンテンツファイルが見つかりません")
     return errors
 
@@ -81,11 +97,17 @@ def main() -> int:
     with open(task_path, encoding="utf-8") as f:
         task = json.load(f)
 
-    target_type = task["manifest"]["target"]["type"]
+    target = task["manifest"]["target"]
+    target_type = target["type"]
+    swell = (
+        task.get("conversion_engine") == "swell"
+        or target.get("parent_theme") == "swell"
+        or str(target.get("theme_slug", "")).endswith("-child")
+    )
     errors: list[str] = []
     warnings: list[str] = []
 
-    errors.extend(check_required_files(wp_dir, target_type))
+    errors.extend(check_required_files(wp_dir, target_type, swell=swell))
 
     php_files = list(wp_dir.rglob("*.php"))
     if php_files:

@@ -61,8 +61,11 @@ def record(session_id: str, snapshot_dir: Path) -> None:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def deploy_local(wp_dir: Path, local_path: Path, target_type: str, theme_slug: str, block_name: str) -> Path:
-    if target_type == "block":
+def deploy_local(wp_dir: Path, local_path: Path, target_type: str, theme_slug: str, block_name: str, *, swell: bool = False) -> Path:
+    # SWELL 子テーマはテーマルートへ丸ごと配置
+    if swell or target_type in {"page", "theme"} and (wp_dir / "functions.php").exists():
+        dest = local_path / "wp-content" / "themes" / theme_slug
+    elif target_type == "block":
         dest = local_path / "wp-content" / "themes" / theme_slug / "blocks" / block_name
     else:
         dest = local_path / "wp-content" / "themes" / theme_slug
@@ -94,6 +97,11 @@ def main() -> int:
     target_type = target["type"]
     theme_slug = target.get("theme_slug", "custom-theme")
     block_name = target.get("block_name", "block")
+    swell = (
+        task.get("conversion_engine") == "swell"
+        or target.get("parent_theme") == "swell"
+        or str(theme_slug).endswith("-child")
+    )
 
     snap = snapshot(args.session_id, wp_dir)
     print(f"[INFO] snapshot: {snap}")
@@ -109,7 +117,7 @@ def main() -> int:
     if args.dry_run:
         print("[INFO] dry-run: ファイルコピーはスキップ")
     else:
-        dest = deploy_local(wp_dir, local_root, target_type, theme_slug, block_name)
+        dest = deploy_local(wp_dir, local_root, target_type, theme_slug, block_name, swell=swell)
         print(f"[INFO] deployed files -> {dest}")
 
         # Docker が起動していればテーマ有効化を試行
