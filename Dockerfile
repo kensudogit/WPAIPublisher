@@ -1,9 +1,16 @@
 # WPAIPublisher — Next.js console + pytest for Railway
-# Root Directory = (empty) · Dockerfile Path = Dockerfile
+# Dashboard MUST be:
+#   Root Directory  = (empty / blank)
+#   Dockerfile Path = Dockerfile
+#   Config file     = /railway.toml
+#
+# Do NOT set Root Directory to "web" — COPY paths assume repo root.
 
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
-COPY web/package.json web/package-lock.json* ./
+# package.json は必須。lock は任意（無い場合は npm install）
+COPY web/package.json ./
+COPY web/package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 FROM node:22-bookworm-slim AS build
@@ -36,7 +43,7 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
-# Python workspace (CLI + tests)
+# Python workspace (CLI + tests) for /api/tests
 WORKDIR /workspace
 COPY requirements.txt ./
 RUN pip3 install --no-cache-dir -r requirements.txt
