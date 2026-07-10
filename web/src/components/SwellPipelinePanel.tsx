@@ -14,6 +14,7 @@ type PipelineResult = {
 }
 
 type ReportPayload = {
+  session?: string
   markdown?: string | null
   report?: {
     overall?: string
@@ -32,6 +33,8 @@ type ReportPayload = {
     errors?: string[]
     warnings?: string[]
   } | null
+  regenerated?: boolean
+  loaded_at?: string
 }
 
 function isHtmlName(name: string): boolean {
@@ -53,7 +56,9 @@ export function SwellPipelinePanel() {
   const [htmlCount, setHtmlCount] = useState(0)
   const [select, setSelect] = useState('**/*.html')
   const [running, setRunning] = useState(false)
+  const [reloading, setReloading] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [result, setResult] = useState<PipelineResult | null>(null)
   const [report, setReport] = useState<ReportPayload | null>(null)
 
@@ -70,6 +75,7 @@ export function SwellPipelinePanel() {
     const count = list.filter((f) => isHtmlName(f.name)).length
     setHtmlCount(count)
     setError('')
+    setInfo('')
     setResult(null)
     setReport(null)
     if (!count) {
@@ -79,9 +85,28 @@ export function SwellPipelinePanel() {
     }
   }
 
+  async function fetchReport(session: string, regenerate: boolean): Promise<ReportPayload> {
+    const qs = new URLSearchParams({
+      session,
+      _: String(Date.now()),
+    })
+    if (regenerate) qs.set('regenerate', '1')
+    const r = await fetch(`/api/swell?${qs.toString()}`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
+    const data = await r.json()
+    if (!r.ok) {
+      throw new Error(data.error || `レポート取得に失敗しました (${r.status})`)
+    }
+    return data as ReportPayload
+  }
+
   async function runWithFormData(form: FormData) {
     setRunning(true)
     setError('')
+    setInfo('')
     setResult(null)
     setReport(null)
     try {
@@ -95,8 +120,11 @@ export function SwellPipelinePanel() {
         setError('検証警告: ' + data.validation_errors.join('; '))
       }
       if (data.session_id) {
-        const r = await fetch(`/api/swell?session=${encodeURIComponent(data.session_id)}`)
-        if (r.ok) setReport(await r.json())
+        try {
+          setReport(await fetchReport(String(data.session_id), false))
+        } catch (e) {
+          setInfo(e instanceof Error ? e.message : String(e))
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -129,6 +157,7 @@ export function SwellPipelinePanel() {
   async function runSample() {
     setRunning(true)
     setError('')
+    setInfo('')
     setResult(null)
     setReport(null)
     try {
@@ -151,8 +180,11 @@ export function SwellPipelinePanel() {
         setError('検証警告: ' + data.validation_errors.join('; '))
       }
       if (data.session_id) {
-        const r = await fetch(`/api/swell?session=${encodeURIComponent(data.session_id)}`)
-        if (r.ok) setReport(await r.json())
+        try {
+          setReport(await fetchReport(String(data.session_id), false))
+        } catch (e) {
+          setInfo(e instanceof Error ? e.message : String(e))
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -162,14 +194,27 @@ export function SwellPipelinePanel() {
   }
 
   async function loadReport(session: string) {
+    setReloading(true)
     setError('')
-    const r = await fetch(`/api/swell?session=${encodeURIComponent(session)}`)
-    if (!r.ok) {
-      setError('レポートが見つかりません')
-      return
+    setInfo('レポートを再生成しています…')
+    try {
+      const data = await fetchReport(session, true)
+      setReport(data)
+      const when = data.loaded_at ? new Date(data.loaded_at).toLocaleString('ja-JP') : ''
+      setInfo(
+        data.regenerated
+          ? `レポートを再生成しました${when ? `（${when}）` : ''}`
+          : `レポートを読み込みました${when ? `（${when}）` : ''}`,
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setInfo('')
+    } finally {
+      setReloading(false)
     }
-    setReport(await r.json())
   }
+
+  const hasReportView = Boolean(report?.report || report?.markdown)
 
   return (
     <div className="select-panel">
@@ -240,6 +285,11 @@ export function SwellPipelinePanel() {
           {error}
         </pre>
       )}
+      {info && !error && (
+        <p className="select-msg ok" style={{ margin: 0 }}>
+          {info}
+        </p>
+      )}
 
       {result && (
         <div className="select-result">
@@ -266,30 +316,41 @@ export function SwellPipelinePanel() {
             </p>
           )}
           {result.session_id && (
-            <button type="button" className="btn" onClick={() => void loadReport(result.session_id!)}>
-              レポート再読込
+            <button
+              type="button"
+              className="btn"
+              disabled={running || reloading}
+              onClick={() => void loadReport(result.session_id!)}
+            >
+              {reloading ? '再生成中…' : 'レポート再読込'}
             </button>
           )}
         </div>
       )}
 
-      {report?.report && (
+      {hasReportView && (
         <div className="panel" style={{ marginTop: '0.5rem' }}>
           <div className="panel-head">
             <h2>変更レポート</h2>
           </div>
           <div className="panel-body">
-            <div className="test-summary">
-              <span className={report.report.overall === 'passed' ? 'badge badge-ok' : 'badge badge-warn'}>
-                {report.report.overall}
-              </span>
-              <span>{report.report.conversion?.theme_slug}</span>
-              <span>blocks: {(report.report.conversion?.blocks || []).join(', ') || '-'}</span>
-            </div>
-            {report.markdown && (
+            {report?.report && (
+              <div className="test-summary">
+                <span className={report.report.overall === 'passed' ? 'badge badge-ok' : 'badge badge-warn'}>
+                  {report.report.overall || report.report.status || '-'}
+                </span>
+                <span>{report.report.conversion?.theme_slug}</span>
+                <span>blocks: {(report.report.conversion?.blocks || []).join(', ') || '-'}</span>
+              </div>
+            )}
+            {report?.markdown ? (
               <pre className="test-msg" style={{ maxHeight: 320, marginTop: '1rem' }}>
                 {report.markdown}
               </pre>
+            ) : (
+              <p className="page-lead" style={{ marginTop: '1rem' }}>
+                Markdown レポートがありません。再読込を試してください。
+              </p>
             )}
           </div>
         </div>

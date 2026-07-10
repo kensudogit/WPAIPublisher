@@ -13,7 +13,41 @@ export async function GET(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: 'session required' }, { status: 400 })
   }
-  const base = join(repoRoot(), 'output', session)
+  // path traversal 防止
+  if (!/^[a-zA-Z0-9._-]+$/.test(session)) {
+    return NextResponse.json({ error: 'invalid session id' }, { status: 400 })
+  }
+
+  const root = repoRoot()
+  const base = join(root, 'output', session)
+  if (!existsSync(base)) {
+    return NextResponse.json(
+      { error: `セッションが見つかりません: ${session}`, session, repo_root: root },
+      { status: 404 },
+    )
+  }
+
+  const regenerate =
+    req.nextUrl.searchParams.get('regenerate') === '1' ||
+    req.nextUrl.searchParams.get('regenerate') === 'true'
+
+  if (regenerate) {
+    const script = join(root, 'scripts', 'report', 'generate_report.py')
+    if (!existsSync(script)) {
+      return NextResponse.json({ error: 'generate_report.py が見つかりません' }, { status: 503 })
+    }
+    const result = await runPython([script, session, '--json'])
+    if (result.code !== 0) {
+      return NextResponse.json(
+        {
+          error: result.stderr || result.stdout || 'report regenerate failed',
+          code: result.code,
+        },
+        { status: 500 },
+      )
+    }
+  }
+
   const readJson = async (p: string) => {
     try {
       return JSON.parse(await readFile(p, 'utf-8'))
@@ -29,14 +63,36 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    session,
-    report: await readJson(join(base, 'change_report.json')),
-    markdown: await readText(join(base, 'change_report.md')),
-    structure: await readJson(join(base, 'structure.json')),
-    visual: await readJson(join(base, 'visual_regression.json')),
-    validation: await readJson(join(base, 'validation.json')),
-  })
+  const report = await readJson(join(base, 'change_report.json'))
+  const markdown = await readText(join(base, 'change_report.md'))
+  if (!report && !markdown) {
+    return NextResponse.json(
+      {
+        error: `レポートファイルがありません: ${session}`,
+        hint: 'パイプラインの report ステップ完了後に再試行してください',
+        session,
+      },
+      { status: 404 },
+    )
+  }
+
+  return NextResponse.json(
+    {
+      session,
+      report,
+      markdown,
+      structure: await readJson(join(base, 'structure.json')),
+      visual: await readJson(join(base, 'visual_regression.json')),
+      validation: await readJson(join(base, 'validation.json')),
+      regenerated: regenerate,
+      loaded_at: new Date().toISOString(),
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    },
+  )
 }
 
 async function saveUploads(form: FormData): Promise<{ dir: string; files: string[] }> {
