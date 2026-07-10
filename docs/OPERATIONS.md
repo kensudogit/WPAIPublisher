@@ -108,6 +108,16 @@ python wpaipublish.py report generate swell-demo
 
 Web: `/swell`
 
+**WordPress への反映（要約）**
+
+| 方法 | 手順 |
+|------|------|
+| ローカル Docker | `deploy staging <session>` → `staging/wp-content/themes/swell-child/` → http://localhost:8088 |
+| 手動コピー | `output/<session>/wordpress/` → 実サイトの `themes/swell-child/` → テーマ有効化 |
+| リモート SSH | `config/.env` の `WP_STAGING_SSH/PATH` → `deploy staging` → `wp theme activate swell-child` |
+
+前提は親テーマ SWELL のインストール。Railway の Web 実行だけでは実 WP には届きません。手順の詳細は [SWELL.md](SWELL.md#wordpress-への反映手順) と利用手順パネル「9b」。
+
 ### 推奨: 汎用 WP（Agent + ローカル staging）
 
 Claude Code で汎用ブロック／テーマへ変換する場合:

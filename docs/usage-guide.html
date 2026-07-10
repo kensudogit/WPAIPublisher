@@ -618,6 +618,38 @@ WordPress Staging / Prod  ロールバック可</pre>
         </li>
 
         <li>
+          <strong>3d. SWELL 結果を WordPress へ反映</strong>
+          <p>
+            成果物は <code>output/&lt;session&gt;/wordpress/</code>（SWELL 子テーマ一式）です。
+            反映先には親テーマ <strong>SWELL</strong> が必要です。
+            Railway の <code>/swell</code> だけでは実 WP サーバーへは届かないため、ローカル CLI または手動コピーで反映します。
+            詳細は <code>docs/SWELL.md</code>「WordPress への反映手順」。
+          </p>
+          <ul class="usage-guide-items">
+            <li>
+              <strong>ローカル Docker（推奨）:</strong><br>
+              <code>docker compose -f docker-compose.staging.yml up -d</code> →
+              <code>bash scripts/local/bootstrap_wp.sh</code> →
+              <code>python wpaipublish.py deploy staging &lt;session&gt;</code>
+            </li>
+            <li>配置先: <code>staging/wp-content/themes/swell-child/</code>（環境変数 <code>WP_STAGING_LOCAL_PATH</code> で変更可）</li>
+            <li>確認: <a href="http://localhost:8088">http://localhost:8088</a> · 管理画面で外観→テーマ→ <code>swell-child</code> を有効化</li>
+            <li>
+              <strong>既存 SWELL サイト（手動）:</strong>
+              <code>wordpress/</code> を <code>wp-content/themes/swell-child/</code> へコピー → テーマ有効化 → パーマリンク再保存 → キャッシュクリア
+            </li>
+            <li>
+              <strong>リモート SSH:</strong>
+              <code>config/.env</code> に <code>WP_STAGING_SSH</code> / <code>WP_STAGING_PATH</code> を設定 →
+              <code>deploy staging &lt;session&gt;</code> →
+              <code>wp theme activate swell-child &amp;&amp; wp cache flush</code>
+            </li>
+            <li>本番: ステージング確認後に <code>python wpaipublish.py deploy production &lt;session&gt; --confirm</code></li>
+            <li>チェック: 親 SWELL あり · 子テーマ有効 · ブロック表示 · CSS/JS · モバイル · レポートとの一致</li>
+          </ul>
+        </li>
+
+        <li>
           <strong>4. 変換セッション作成</strong>
           <p>Claude Code 向けの入力パッケージと指示ファイルを生成します。</p>
           <ul class="usage-guide-items">

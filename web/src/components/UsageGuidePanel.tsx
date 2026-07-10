@@ -30,6 +30,7 @@ const recommendedFlow = [
   'SWELL一括: swell pipeline <id> --source-dir <folder> --select a.html --visual-update',
   'または: intake pipeline → agent run → Claude Code → agent resume',
   '確認: localhost:8088 / change_report.md',
+  'WP反映: deploy staging → themes/swell-child（手順 9b / docs/SWELL.md）',
   'git commit <id> --push → 本番は --approve / --confirm',
 ] as const
 
@@ -142,6 +143,19 @@ const steps = [
       'git commit <id> --push（任意 --pr）',
       'report generate → change_report.md',
       'Web: /swell · 詳細: docs/SWELL.md',
+    ],
+  },
+  {
+    title: '9b. SWELL 結果を WordPress へ反映',
+    body: '成果物は output/<session>/wordpress/（子テーマ）。親テーマ SWELL 必須。Railway だけでは実 WP には届きません。',
+    items: [
+      'ローカル: docker compose -f docker-compose.staging.yml up -d → bootstrap_wp.sh',
+      'deploy staging <session> → staging/wp-content/themes/swell-child/',
+      '確認: http://localhost:8088 / 外観→テーマで swell-child を有効化',
+      '既存サイト: wordpress/ を themes/swell-child へコピー → テーマ有効化 → キャッシュクリア',
+      'リモート: config/.env に WP_STAGING_SSH/PATH → deploy staging → wp theme activate',
+      '本番: ステージング確認後に deploy production <session> --confirm',
+      '詳細: docs/SWELL.md「WordPress への反映手順」',
     ],
   },
 ] as const
@@ -330,7 +344,7 @@ export function UsageGuidePanel() {
           </ol>
 
           <p className="usage-guide-footer">
-            ▼▲ で開閉 · ヘッダーをドラッグして移動 · SWELL は /swell · docs/SWELL.md · テストは /tests
+            ▼▲ で開閉 · ヘッダーをドラッグして移動 · SWELL は /swell · WP反映は手順 9b · docs/SWELL.md · テストは /tests
           </p>
         </div>
       ) : null}

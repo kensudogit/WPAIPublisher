@@ -32,6 +32,15 @@ python wpaipublish.py deploy staging demo-20260709
 
 ブロックはテーマ `custom-theme` の `blocks/hero-section` に配置されます。
 
+SWELL パイプラインの場合は `swell-child` 子テーマとして配置されます。
+
+```powershell
+python wpaipublish.py deploy staging <swell-session>
+# → staging/wp-content/themes/swell-child/
+```
+
+管理画面 → 外観 → テーマ で `swell-child` を有効化（親テーマ SWELL が必要）。詳細は [SWELL.md](SWELL.md#wordpress-への反映手順)。
+
 固定ページで確認する場合:
 
 1. 管理画面 → 固定ページ → 新規
