@@ -89,7 +89,8 @@ def main() -> int:
         ],
     }
     if args.json:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        # Web API は stdout を JSON として読むため、1行のコンパクト出力にする
+        print(json.dumps(result, ensure_ascii=False))
     else:
         print("\nPipeline prepared")
         print(f"  package: {dest}")

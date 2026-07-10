@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { join, dirname } from 'path'
 import { randomBytes } from 'crypto'
-import { looksLikeWindowsPath, repoRoot, runPython } from '@/lib/repoRoot'
+import { looksLikeWindowsPath, parsePythonJson, repoRoot, runPython } from '@/lib/repoRoot'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -44,14 +44,19 @@ async function saveUploads(form: FormData): Promise<{ dir: string; files: string
   const dir = join(root, 'intake', 'uploads', uploadId)
   mkdirSync(dir, { recursive: true })
 
+  const pathHints = form.getAll('paths').map(String).filter(Boolean)
   const files: string[] = []
   const entries = form.getAll('files')
+  let i = 0
   for (const entry of entries) {
     if (typeof entry === 'string') continue
     const file = entry as File
+    const hint = pathHints[i]
     const rel =
+      hint ||
       (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
       file.name
+    i += 1
     // strip leading folder name from webkitdirectory (folder/a.html -> a.html or keep nested)
     const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
     const relPath = parts.length > 1 ? parts.slice(1).join('/') : parts[0] || file.name
@@ -184,13 +189,7 @@ export async function POST(req: NextRequest) {
     if (visualUpdate) args.push('--visual-update')
 
     const result = await runPython(args)
-    let data: Record<string, unknown> | null = null
-    try {
-      const lines = result.stdout.trim().split('\n').filter(Boolean)
-      data = JSON.parse(lines[lines.length - 1] || '{}') as Record<string, unknown>
-    } catch {
-      data = null
-    }
+    const data = parsePythonJson(result.stdout)
 
     if (!data) {
       return NextResponse.json(

@@ -29,6 +29,38 @@ export function looksLikeWindowsPath(p: string): boolean {
   return /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith('\\\\')
 }
 
+/** Python の indent 付き JSON / ログ混在 stdout からオブジェクトを取り出す */
+export function parsePythonJson(stdout: string): Record<string, unknown> | null {
+  const text = (stdout || '').trim()
+  if (!text) return null
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>
+  } catch {
+    // continue
+  }
+
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>
+    } catch {
+      // continue
+    }
+  }
+
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    try {
+      return JSON.parse(lines[i]) as Record<string, unknown>
+    } catch {
+      // continue
+    }
+  }
+  return null
+}
+
 export function runPython(
   args: string[],
   cwd?: string,

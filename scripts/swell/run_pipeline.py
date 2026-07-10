@@ -150,7 +150,7 @@ def main() -> int:
     }
 
     if args.json:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print(json.dumps(result, ensure_ascii=False))
     else:
         print("\nSWELL pipeline finished")
         print(f"  session: {session_id}")
@@ -163,7 +163,7 @@ def main() -> int:
 def _fail(steps: list, session_id: str | None, as_json: bool, out: str) -> int:
     result = {"session_id": session_id, "steps": steps, "ok": False, "error": out[-1500:]}
     if as_json:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print(json.dumps(result, ensure_ascii=False))
     else:
         print("PIPELINE FAILED", file=sys.stderr)
         for s in steps:

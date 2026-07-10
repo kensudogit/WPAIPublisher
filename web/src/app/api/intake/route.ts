@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { randomBytes } from 'crypto'
-import { looksLikeWindowsPath, repoRoot, runPython } from '@/lib/repoRoot'
+import { looksLikeWindowsPath, parsePythonJson, repoRoot, runPython } from '@/lib/repoRoot'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -13,14 +13,31 @@ async function saveUploads(form: FormData): Promise<{ dir: string; files: string
   const dir = join(root, 'intake', 'uploads', uploadId)
   mkdirSync(dir, { recursive: true })
 
+  const pathHints = form.getAll('paths').map(String)
   const files: string[] = []
+  let idx = 0
   for (const entry of form.getAll('files')) {
     if (typeof entry === 'string') continue
     const file = entry as File
+    const hint = pathHints[idx] || ''
+    idx += 1
     const relRaw =
-      (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+      hint ||
+      (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+      file.name
     const parts = relRaw.replace(/\\/g, '/').split('/').filter(Boolean)
-    const relPath = parts.length > 1 ? parts.slice(1).join('/') : parts[0] || file.name
+    // paths ヒントがある場合はそのまま。webkitRelativePath なら先頭フォルダを除去
+    let relPath: string
+    if (hint) {
+      relPath = hint.replace(/\\/g, '/')
+    } else if (parts.length > 1) {
+      relPath = parts.slice(1).join('/')
+    } else {
+      relPath = parts[0] || file.name
+    }
+    // パストラバーサル防止
+    relPath = relPath.replace(/^(\.\.\/)+/, '').replace(/^\/+/, '')
+    if (!relPath || relPath.includes('..')) continue
     const dest = join(dir, relPath)
     mkdirSync(dirname(dest), { recursive: true })
     writeFileSync(dest, Buffer.from(await file.arrayBuffer()))
@@ -223,10 +240,20 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  try {
-    const data = JSON.parse(result.stdout.trim().split('\n').filter(Boolean).at(-1) || '{}')
-    return NextResponse.json({ ...data, source_dir: sourceDir })
-  } catch {
-    return NextResponse.json({ ok: true, raw: result.stdout, source_dir: sourceDir })
+  const data = parsePythonJson(result.stdout)
+  if (!data || !data.session_id) {
+    return NextResponse.json(
+      {
+        error:
+          result.stderr?.trim() ||
+          'パイプライン結果の JSON を読めませんでした（session_id なし）',
+        raw: result.stdout?.slice(-2000),
+        code: result.code,
+        repo_root: root,
+        source_dir: sourceDir,
+      },
+      { status: 500 },
+    )
   }
+  return NextResponse.json({ ...data, source_dir: sourceDir })
 }
