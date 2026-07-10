@@ -28,6 +28,8 @@ type Report = {
   finished_at?: string
   duration_sec?: number
   error?: string
+  note?: string
+  keyword_applied?: string | null
   stdout_tail?: string
   stderr_tail?: string
 }
@@ -40,10 +42,30 @@ type RunRow = {
   duration_sec?: number
 }
 
+const FILTER_PRESETS = [
+  { label: 'すべて', value: '' },
+  { label: 'TestSlugify', value: 'TestSlugify' },
+  { label: 'select', value: 'select' },
+  { label: 'SWELL', value: 'swell' },
+  { label: 'Validate', value: 'TestValidateManifest' },
+  { label: 'Report', value: 'TestGenerateReport' },
+] as const
+
 function outcomeClass(outcome: string) {
   if (outcome === 'passed') return 'badge badge-ok'
   if (outcome === 'failed' || outcome === 'error') return 'badge badge-warn'
   return 'badge badge-muted'
+}
+
+/** 「pytest -k Foo」や「-k Foo」を貼っても Foo にする */
+function normalizeKeyword(raw: string): string {
+  let k = raw.trim()
+  if (!k) return ''
+  k = k.replace(/^pytest\s+/i, '')
+  k = k.replace(/^-k\s+/i, '')
+  k = k.replace(/^--keyword\s+/i, '')
+  k = k.replace(/^["']|["']$/g, '')
+  return k.trim()
 }
 
 export function TestResultsPanel() {
@@ -72,7 +94,7 @@ export function TestResultsPanel() {
           setReport(listData.latest)
         }
       } else {
-        setReport(null)
+        setReport(listData.latest)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -88,16 +110,26 @@ export function TestResultsPanel() {
   async function runTests() {
     setRunning(true)
     setError('')
+    const normalized = normalizeKeyword(keyword)
+    if (normalized !== keyword.trim()) {
+      setKeyword(normalized)
+    }
     try {
       const res = await fetch('/api/tests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword: keyword.trim() || undefined }),
+        body: JSON.stringify({ keyword: normalized || undefined }),
       })
       const data = await res.json()
-      if (!res.ok && data.error) throw new Error(data.error)
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`)
+      }
       setReport(data as Report)
-      await refresh((data as Report).id)
+      if ((data as Report).id) {
+        await refresh((data as Report).id)
+      } else {
+        await refresh()
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -110,26 +142,47 @@ export function TestResultsPanel() {
   return (
     <div className="test-panel">
       <div className="select-row">
-        <label htmlFor="test-filter">フィルタ（pytest -k、任意）</label>
+        <label htmlFor="test-filter">フィルタ（任意・クラス名やキーワードのみ）</label>
+        <p className="page-lead" style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+          <code>pytest -k</code> は不要です。空欄＝全テスト。例: <code>TestSlugify</code> · <code>select</code> ·{' '}
+          <code>swell</code>
+        </p>
         <div className="select-controls">
           <input
             id="test-filter"
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="例: TestSlugify or select"
+            placeholder="空欄で全件 / 例: TestSlugify"
             disabled={running}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void runTests()
+            }}
           />
-          <button type="button" className="btn btn-primary" onClick={runTests} disabled={running}>
+          <button type="button" className="btn btn-primary" onClick={() => void runTests()} disabled={running}>
             {running ? '実行中…' : 'テスト実行'}
           </button>
           <button type="button" className="btn" onClick={() => void refresh()} disabled={running || loading}>
             再読込
           </button>
         </div>
+        <div className="select-toolbar" style={{ marginTop: '0.5rem' }}>
+          {FILTER_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              className="btn-ghost"
+              disabled={running}
+              onClick={() => setKeyword(p.value)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && <p className="select-msg err">{error}</p>}
+      {report?.note && <p className="select-msg ok">{report.note}</p>}
 
       {summary && (
         <div className="test-summary" aria-live="polite">
@@ -144,6 +197,11 @@ export function TestResultsPanel() {
           <span className="test-run-id">
             <code>{report?.id}</code>
           </span>
+          {report?.keyword_applied ? (
+            <span>
+              filter: <code>{report.keyword_applied}</code>
+            </span>
+          ) : null}
         </div>
       )}
 
@@ -158,7 +216,10 @@ export function TestResultsPanel() {
             {loading && !runs.length ? (
               <p className="empty">読み込み中…</p>
             ) : !runs.length ? (
-              <p className="empty">まだ実行結果がありません。「テスト実行」を押してください。</p>
+              <p className="empty">
+                まだ実行結果がありません。フィルタは空のまま「テスト実行」を押してください（
+                <code>pytest -k</code> と書かないでください）。
+              </p>
             ) : (
               <ul className="file-list">
                 {runs.map((r) => (

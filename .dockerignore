@@ -13,5 +13,6 @@ output
 deployments
 staging
 knowledge/vector_store
+wp-content-staging
 **/*.md
 !README.md
