@@ -39,6 +39,7 @@ intake/incoming/*
 !intake/incoming/.gitkeep
 intake/processed/*
 !intake/processed/.gitkeep
+intake/uploads/
 
 # OS
 .DS_Store

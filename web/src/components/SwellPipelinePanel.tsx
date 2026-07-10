@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 type PipelineResult = {
   session_id?: string
@@ -8,6 +8,7 @@ type PipelineResult = {
   steps?: { step: string; ok: boolean }[]
   report?: string
   error?: string
+  source_dir?: string
 }
 
 type ReportPayload = {
@@ -24,29 +25,68 @@ type ReportPayload = {
 }
 
 export function SwellPipelinePanel() {
-  const [dir, setDir] = useState('')
-  const [select, setSelect] = useState('hero.html')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [files, setFiles] = useState<FileList | null>(null)
+  const [select, setSelect] = useState('**/*.html')
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<PipelineResult | null>(null)
   const [report, setReport] = useState<ReportPayload | null>(null)
 
-  async function runPipeline() {
+  function fileSummary(): string {
+    if (!files?.length) return '未選択'
+    const names = Array.from(files).map((f) => f.name)
+    const htmlCount = names.filter((n) => n.toLowerCase().endsWith('.html')).length
+    return `${files.length} ファイル（HTML ${htmlCount}）`
+  }
+
+  async function runWithFormData(form: FormData) {
     setRunning(true)
     setError('')
     setResult(null)
     setReport(null)
     try {
-      const selects = select
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+      const res = await fetch('/api/swell', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'pipeline failed')
+      setResult(data)
+      if (data.ok === false && data.error) setError(String(data.error))
+      if (data.session_id) {
+        const r = await fetch(`/api/swell?session=${encodeURIComponent(data.session_id)}`)
+        if (r.ok) setReport(await r.json())
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  async function runUpload() {
+    if (!files?.length) {
+      setError('HTML ファイル（フォルダ）を選択してください。Railway では C:\\... のパスは使えません。')
+      return
+    }
+    const form = new FormData()
+    Array.from(files).forEach((f) => form.append('files', f))
+    form.set('select', select.trim() || '**/*.html')
+    form.set('visual_update', 'true')
+    form.set('skip_git', 'true')
+    await runWithFormData(form)
+  }
+
+  async function runSample() {
+    setRunning(true)
+    setError('')
+    setResult(null)
+    setReport(null)
+    try {
       const res = await fetch('/api/swell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source_dir: dir,
-          select: selects,
+          use_sample: true,
+          select: ['**/*.html'],
           visual_update: true,
           skip_git: true,
         }),
@@ -54,6 +94,7 @@ export function SwellPipelinePanel() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'pipeline failed')
       setResult(data)
+      if (data.ok === false && data.error) setError(String(data.error))
       if (data.session_id) {
         const r = await fetch(`/api/swell?session=${encodeURIComponent(data.session_id)}`)
         if (r.ok) setReport(await r.json())
@@ -77,49 +118,77 @@ export function SwellPipelinePanel() {
 
   return (
     <div className="select-panel">
+      <p className="page-lead" style={{ margin: 0, fontSize: '0.9rem' }}>
+        Railway（クラウド）では PC の <code>C:\test</code> などローカルパスは使えません。HTML
+        フォルダをアップロードするか、サンプルで動作確認してください。
+      </p>
+
       <div className="select-row">
-        <label htmlFor="swell-dir">HTML フォルダ</label>
+        <label htmlFor="swell-files">HTML フォルダをアップロード</label>
         <input
-          id="swell-dir"
-          value={dir}
-          onChange={(e) => setDir(e.target.value)}
-          placeholder="C:\path\to\html-folder"
+          id="swell-files"
+          ref={fileRef}
+          type="file"
+          multiple
+          {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
           disabled={running}
+          onChange={(e) => setFiles(e.target.files)}
         />
+        <p className="page-lead" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem' }}>
+          選択中: {fileSummary()} · CSS/JS も同フォルダにあれば一緒に送れます
+        </p>
       </div>
+
       <div className="select-row">
-        <label htmlFor="swell-select">選択 HTML（カンマ区切り / ワイルドカード可）</label>
+        <label htmlFor="swell-select">選択パターン（カンマ区切り / ワイルドカード可）</label>
         <input
           id="swell-select"
           value={select}
           onChange={(e) => setSelect(e.target.value)}
-          placeholder="*.html / pages/*.html / hero.html, about.html"
+          placeholder="**/*.html / *.html / pages/*.html"
           disabled={running}
         />
         <p className="page-lead" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem' }}>
-          例: <code>*.html</code>（直下）· <code>**/*.html</code> または <code>all</code>（再帰すべて）·{' '}
+          例: <code>*.html</code>（直下）· <code>**/*.html</code> / <code>all</code>（再帰）·{' '}
           <code>pages/*.html</code>
         </p>
       </div>
-      <button
-        type="button"
-        className="btn btn-primary"
-        onClick={runPipeline}
-        disabled={running || !dir.trim() || !select.trim()}
-      >
-        {running ? '実行中…' : 'SWELL パイプライン実行'}
-      </button>
+
+      <div className="select-controls">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => void runUpload()}
+          disabled={running || !files?.length}
+        >
+          {running ? '実行中…' : 'アップロードして実行'}
+        </button>
+        <button type="button" className="btn" onClick={() => void runSample()} disabled={running}>
+          サンプル実行
+        </button>
+      </div>
+
       <p className="page-lead" style={{ margin: 0 }}>
-        解析 → SWELL 変換 → validate → deploy → visual（ベースライン更新）→ レポート。Git push は CLI で実行してください。
+        解析 → SWELL 変換 → validate → deploy → visual → レポート。Git push は CLI で実行してください。
+        ローカル CLI: <code>python wpaipublish.py swell pipeline demo --source-dir C:\test --select &quot;*.html&quot;</code>
       </p>
 
-      {error && <p className="select-msg err">{error}</p>}
+      {error && (
+        <pre className="select-msg err" style={{ whiteSpace: 'pre-wrap' }}>
+          {error}
+        </pre>
+      )}
 
       {result && (
         <div className="select-result">
           <p>
-            セッション: <code>{result.session_id}</code> · {result.ok ? 'OK' : 'NG'}
+            セッション: <code>{result.session_id || '-'}</code> · {result.ok ? 'OK' : 'NG'}
           </p>
+          {result.source_dir && (
+            <p>
+              source: <code>{result.source_dir}</code>
+            </p>
+          )}
           <ul>
             {(result.steps || []).map((s) => (
               <li key={s.step}>

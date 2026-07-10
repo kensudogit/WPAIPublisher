@@ -7,6 +7,7 @@ export default function SwellPage() {
       <h1 className="page-title">SWELL パイプライン</h1>
       <p className="page-lead">
         HTML 解析 → SWELL 子テーマ／ブロック／テンプレート変換 → デプロイ → Playwright 差分 → 変更レポートまでを実行します。
+        クラウド上ではローカルパスではなく、フォルダのアップロードまたはサンプル実行を使います。
       </p>
       <div className="panel">
         <div className="panel-head">
