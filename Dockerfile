@@ -31,6 +31,8 @@ ENV PYTHON_BIN=python3
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUTF8=1
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_NO_SANDBOX=1
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 python3-pip python3-venv php-cli \
@@ -43,10 +45,18 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
-# Python workspace (CLI + tests) for /api/tests
+# Python + visual regression workspace
 WORKDIR /workspace
 COPY requirements.txt ./
 RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Playwright / pixelmatch（ルート package.json）
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi \
+  && npx playwright install-deps chromium \
+  && npx playwright install chromium \
+  && chown -R nextjs:nodejs /workspace/node_modules /ms-playwright
+
 COPY --chown=nextjs:nodejs wpaipublish.py pytest.ini ./
 COPY --chown=nextjs:nodejs scripts ./scripts
 COPY --chown=nextjs:nodejs tests ./tests

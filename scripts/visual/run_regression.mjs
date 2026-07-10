@@ -114,7 +114,15 @@ async function main() {
   [baselineDir, currentDir, diffDir].forEach((d) => mkdirSync(d, { recursive: true }));
 
   const viewports = await loadViewports();
-  const browser = await chromium.launch();
+  const launchArgs = [];
+  // Docker / Railway では sandbox が使えないことが多い
+  if (process.env.PLAYWRIGHT_NO_SANDBOX !== '0') {
+    launchArgs.push('--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage');
+  }
+  const browser = await chromium.launch({
+    headless: true,
+    args: launchArgs,
+  });
   const results = [];
 
   let pagePath = '/';
