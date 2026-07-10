@@ -3,6 +3,7 @@ import { spawn } from 'child_process'
 import { existsSync } from 'fs'
 import { readdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
+import { normalizeKeyword } from '@/lib/normalizeKeyword'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -38,18 +39,6 @@ function resultsDir(): string {
     if (existsSync(dir)) return dir
   }
   return resultsCandidates()[0]
-}
-
-/** ユーザーが「pytest -k Foo」と貼っても Foo だけにする */
-export function normalizeKeyword(raw?: string | null): string | undefined {
-  if (!raw) return undefined
-  let k = raw.trim()
-  if (!k) return undefined
-  k = k.replace(/^pytest\s+/i, '')
-  k = k.replace(/^-k\s+/i, '')
-  k = k.replace(/^--keyword\s+/i, '')
-  k = k.replace(/^["']|["']$/g, '')
-  return k.trim() || undefined
 }
 
 function runPython(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
