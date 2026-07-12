@@ -75,8 +75,7 @@ async function readApiJson(res: Response): Promise<Record<string, unknown>> {
 }
 
 export function SwellPipelinePanel() {
-  const folderFilesRef = useRef<HTMLInputElement>(null)
-  const htmlFilesRef = useRef<HTMLInputElement>(null)
+  const filesRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
   const [htmlCount, setHtmlCount] = useState(0)
   const [select, setSelect] = useState('**/*.html')
@@ -103,7 +102,7 @@ export function SwellPipelinePanel() {
     setReport(null)
     if (!count) {
       setError(
-        `HTML が見つかりません（${list.length} ファイル読み込み）。.html / .htm を含むフォルダかファイルを選んでください。`,
+        `HTML が見つかりません（${list.length} ファイル）。.html / .htm を選んでください。`,
       )
       return
     }
@@ -111,14 +110,13 @@ export function SwellPipelinePanel() {
       setError(
         `読み込み過多: HTML ${count} / 合計 ${list.length} ファイル。` +
           ` Web UI では HTML ${MAX_UPLOAD_HTML}・合計 ${MAX_UPLOAD_FILES} までです。` +
-          ' サブフォルダを選ぶか、少数の HTML だけ選んでください。大量はローカル CLI を使います。',
+          ' 件数を減らして選び直してください。大量はローカル CLI を使います。',
       )
     }
   }
 
   function onPickerChange(e: ChangeEvent<HTMLInputElement>) {
     applyFiles(e.target.files ? Array.from(e.target.files) : [])
-    // 同じフォルダを再選択できるようにクリア
     e.target.value = ''
   }
 
@@ -174,7 +172,7 @@ export function SwellPipelinePanel() {
 
   async function runUpload() {
     if (!files.length) {
-      setError('フォルダまたは HTML を選択してください。Railway では C:\\... パスは使えません。')
+      setError('HTML ファイルを選択してください。Railway では C:\\... パスは使えません。')
       return
     }
     if (!htmlCount) {
@@ -273,49 +271,32 @@ export function SwellPipelinePanel() {
   return (
     <div className="select-panel">
       <p className="page-lead" style={{ margin: 0, fontSize: '0.9rem' }}>
-        Railway では PC の <code>C:\test</code> は使えません。フォルダ／HTML を選ぶか、サンプル実行してください。
+        通常の複数ファイル選択で HTML（必要なら CSS/JS）を選び、「アップロードして実行」してください。
         Web では一度に HTML {MAX_UPLOAD_HTML} 件まで（大量はローカル CLI）。
       </p>
 
       <div className="select-row">
-        <label>ファイル選択</label>
+        <label>ファイル選択（複数可）</label>
         <div className="select-controls" style={{ flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn"
             disabled={running}
-            onClick={() => folderFilesRef.current?.click()}
+            onClick={() => filesRef.current?.click()}
           >
-            フォルダ内のファイルを選択
-          </button>
-          <button
-            type="button"
-            className="btn"
-            disabled={running}
-            onClick={() => htmlFilesRef.current?.click()}
-          >
-            HTMLのみ選択
+            ファイルを選択
           </button>
         </div>
-        {/* webkitdirectory は使わない（Windows ではフォルダしか出ず中身が見えない） */}
         <input
-          ref={folderFilesRef}
+          ref={filesRef}
           type="file"
           multiple
           accept=".html,.htm,.css,.js,.mjs,.json,text/html,text/css,text/javascript,application/json"
           style={{ display: 'none' }}
           onChange={onPickerChange}
         />
-        <input
-          ref={htmlFilesRef}
-          type="file"
-          multiple
-          accept=".html,.htm,text/html"
-          style={{ display: 'none' }}
-          onChange={onPickerChange}
-        />
         <p className="page-lead" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem' }}>
-          <code>C:\test</code> などへ移動し、ファイル一覧から選択（Ctrl+A でまとめて可）。
+          ダイアログでファイルを複数選択（Ctrl / Shift クリック、または Ctrl+A）。
           読み込み: {files.length} ファイル（HTML {htmlCount}）
           {htmlCount > MAX_UPLOAD_HTML || files.length > MAX_UPLOAD_FILES
             ? ` · 上限超過（HTML ${MAX_UPLOAD_HTML} / 合計 ${MAX_UPLOAD_FILES}）`
@@ -324,7 +305,7 @@ export function SwellPipelinePanel() {
         {fileEntries.length > 0 && (
           <ul className="file-list" role="list" aria-label="選択中のファイル" style={{ marginTop: '0.5rem' }}>
             {fileEntries.slice(0, 80).map((f) => (
-              <li key={f.path + f.file.size}>
+              <li key={f.path + f.file.size + f.file.lastModified}>
                 <span className="file-meta">
                   <strong>{f.path}</strong>
                   <small>

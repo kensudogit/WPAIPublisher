@@ -62,7 +62,6 @@ function buildHtmlList(all: File[]): { htmls: HtmlFile[]; otherExts: string[] } 
 }
 
 export function HtmlSelectPanel() {
-  const folderRef = useRef<HTMLInputElement>(null)
   const filesRef = useRef<HTMLInputElement>(null)
   const [uploadFiles, setUploadFiles] = useState<File[]>([])
   const [files, setFiles] = useState<HtmlFile[]>([])
@@ -92,22 +91,12 @@ export function HtmlSelectPanel() {
       setError(
         `HTML が見つかりませんでした（読み込み ${list.length} ファイル）。` +
           (otherExts.length
-            ? ` 検出した拡張子: ${otherExts.join(', ')}。.html / .htm を含むフォルダを選んでください。`
-            : ' 空のフォルダか、ファイルが選択されていません。「HTMLファイルを選択」も試してください。'),
+            ? ` 検出した拡張子: ${otherExts.join(', ')}。.html / .htm を選んでください。`
+            : ' .html / .htm ファイルを選択してください。'),
       )
       return
     }
     setMessage(`${label}: ${htmls.length} 件の HTML を表示しています`)
-  }
-
-  function onFolderChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = e.target.files ? Array.from(e.target.files) : []
-    e.target.value = ''
-    if (!list.length) {
-      setError('ファイルが選択されていません')
-      return
-    }
-    applyFileList(list, 'フォルダ内ファイル')
   }
 
   function onFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -208,53 +197,34 @@ export function HtmlSelectPanel() {
   return (
     <div className="select-panel">
       <p className="page-lead" style={{ margin: 0, fontSize: '0.9rem' }}>
-        Railway では <code>C:\test</code> のようなパス指定はできません。下のボタンでフォルダまたは HTML
-        ファイルを選ぶと、すぐ一覧が表示されます。
+        通常の複数ファイル選択で HTML を選びます。Ctrl / Shift で複数選択できます。
       </p>
 
       <div className="select-row">
-        <label>ファイル選択</label>
+        <label>ファイル選択（複数可）</label>
         <div className="select-controls" style={{ flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn"
-            disabled={loading}
-            onClick={() => folderRef.current?.click()}
-          >
-            フォルダ内のファイルを選択
-          </button>
           <button
             type="button"
             className="btn"
             disabled={loading}
             onClick={() => filesRef.current?.click()}
           >
-            HTMLファイルを選択
+            ファイルを選択
           </button>
           <button type="button" className="btn" onClick={() => void listSample()} disabled={loading}>
             サンプル一覧
           </button>
         </div>
-        {/* webkitdirectory は使わない（ダイアログにフォルダしか出ない） */}
-        <input
-          ref={folderRef}
-          type="file"
-          multiple
-          accept=".html,.htm,.css,.js,.mjs,.json,text/html,text/css,text/javascript,application/json"
-          style={{ display: 'none' }}
-          onChange={onFolderChange}
-        />
         <input
           ref={filesRef}
           type="file"
           multiple
-          accept=".html,.htm,text/html"
+          accept=".html,.htm,.css,.js,.mjs,.json,text/html,text/css,text/javascript,application/json"
           style={{ display: 'none' }}
           onChange={onFilesChange}
         />
         <p className="page-lead" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem' }}>
-          フォルダへ移動してファイルを表示・選択（Ctrl+A でまとめて可）。読み込み: {uploadFiles.length}{' '}
-          ファイル · 表示中 HTML: {files.length} 件
+          読み込み: {uploadFiles.length} ファイル · 表示中 HTML: {files.length} 件
         </p>
       </div>
 
