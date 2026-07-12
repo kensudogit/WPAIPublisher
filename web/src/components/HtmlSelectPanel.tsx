@@ -306,6 +306,15 @@ export function HtmlSelectPanel() {
         </pre>
       )}
 
+      {result?.session_id ? (
+        <SessionDownloadButton
+          sessionId={result.session_id}
+          className="btn btn-primary"
+          label="セッションファイルをダウンロード（ZIP）"
+          disabled={loading}
+        />
+      ) : null}
+
       {result && (
         <div className="select-result">
           <p>
@@ -313,17 +322,19 @@ export function HtmlSelectPanel() {
           </p>
           <p>
             セッション: <code>{result.session_id}</code>
+            {result.session_id ? (
+              <>
+                {' · '}
+                <a
+                  href={`/api/sessions/${encodeURIComponent(result.session_id)}/download`}
+                  download={`wpai-session-${result.session_id}.zip`}
+                  style={{ fontWeight: 700, textDecoration: 'underline' }}
+                >
+                  ZIPダウンロード
+                </a>
+              </>
+            ) : null}
           </p>
-          {result.session_id ? (
-            <p style={{ marginTop: '0.75rem' }}>
-              <SessionDownloadButton
-                sessionId={result.session_id}
-                className="btn btn-primary"
-                label="セッションファイルをダウンロード"
-                disabled={loading}
-              />
-            </p>
-          ) : null}
           {result.next && (
             <ol>
               {result.next.map((step) => (
