@@ -8,6 +8,14 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname),
+  // 複数 HTML アップロード用（既定 ~10MB だと途中で切れることがある）
+  experimental: {
+    middlewareClientMaxBodySize: '50mb',
+    proxyClientMaxBodySize: '50mb',
+  },
+  serverActions: {
+    bodySizeLimit: '50mb',
+  },
 }
 
 export default nextConfig

@@ -26,12 +26,25 @@ deploy + Playwright差分    visual/diff/
 git commit/push + report   change_report.md`
 
 const recommendedFlow = [
-  '初回のみ: knowledge index --rebuild + ローカル Docker staging',
-  'SWELL一括: swell pipeline <id> --source-dir <folder> --select a.html --visual-update',
+  '初回のみ: knowledge index --rebuild + ローカル Docker staging（bootstrap_wp.sh）',
+  'SWELL一括自動反映: swell pipeline <id> --source-dir <folder> --select a.html --visual-update',
+  '（pipeline 内で deploy staging まで実行 → themes/swell-child へ自動配置）',
+  '確認: http://localhost:8088 / change_report.md / テーマ swell-child 有効',
   'または: intake pipeline → agent run → Claude Code → agent resume',
-  '確認: localhost:8088 / change_report.md',
-  'WP反映: deploy staging → themes/swell-child（手順 9b / docs/SWELL.md）',
-  'git commit <id> --push → 本番は --approve / --confirm',
+  '本番: deploy production <id> --confirm（手順 9b / docs/SWELL.md）',
+] as const
+
+const wpAutoReflect = [
+  '前提: 親テーマ SWELL インストール済み。成果物は output/<session>/wordpress/',
+  '① Docker: docker compose -f docker-compose.staging.yml up -d',
+  '② 初回: bash scripts/local/bootstrap_wp.sh',
+  '③ 一括: python wpaipublish.py swell pipeline <id> --source-dir <folder> --select a.html --visual-update',
+  '   → analyze〜convert〜deploy staging〜visual〜report（--skip-deploy を付けない）',
+  '④ 配置先: staging/wp-content/themes/swell-child/（自動コピー）',
+  '⑤ 確認: http://localhost:8088 （管理画面 admin / admin1234）',
+  '変換済みのみ再反映: python wpaipublish.py deploy staging <session>',
+  'リモート自動: config/.env に WP_STAGING_SSH/PATH → deploy staging → wp theme activate swell-child',
+  '注意: Railway /swell だけでは実 WP サーバーへは届かない',
 ] as const
 
 const steps = [
@@ -146,16 +159,21 @@ const steps = [
     ],
   },
   {
-    title: '9b. SWELL 結果を WordPress へ反映',
-    body: '成果物は output/<session>/wordpress/（子テーマ）。親テーマ SWELL 必須。Railway だけでは実 WP には届きません。',
+    title: '9b. SWELL 結果を WordPress へ自動反映',
+    body: '成果物は output/<session>/wordpress/（子テーマ swell-child）。親テーマ SWELL 必須。swell pipeline は --skip-deploy を付けなければ staging へ自動配置します。Railway だけでは実 WP には届きません。',
     items: [
-      'ローカル: docker compose -f docker-compose.staging.yml up -d → bootstrap_wp.sh',
-      'deploy staging <session> → staging/wp-content/themes/swell-child/',
-      '確認: http://localhost:8088 / 外観→テーマで swell-child を有効化',
-      '既存サイト: wordpress/ を themes/swell-child へコピー → テーマ有効化 → キャッシュクリア',
-      'リモート: config/.env に WP_STAGING_SSH/PATH → deploy staging → wp theme activate',
+      '【最短・自動】Docker staging 起動 → bootstrap_wp.sh → swell pipeline（deploy 込み）',
+      'docker compose -f docker-compose.staging.yml up -d',
+      'bash scripts/local/bootstrap_wp.sh（初回のみ・テーマ有効化を試行）',
+      'python wpaipublish.py swell pipeline <id> --source-dir <folder> --select a.html --visual-update',
+      '自動配置先: staging/wp-content/themes/swell-child/',
+      '確認: http://localhost:8088 / wp-admin（admin / admin1234）/ 外観→テーマ',
+      '再反映のみ: python wpaipublish.py deploy staging <session>',
+      '【リモート自動】config/.env に WP_STAGING_SSH / WP_STAGING_PATH / WP_STAGING_URL',
+      'deploy staging <session> → ssh 先で wp theme activate swell-child && wp cache flush',
+      '【手動】wordpress/ を themes/swell-child へコピー → 有効化 → パーマリンク再保存 → キャッシュクリア',
       '本番: ステージング確認後に deploy production <session> --confirm',
-      '詳細: docs/SWELL.md「WordPress への反映手順」',
+      '詳細: docs/SWELL.md「WordPress への反映手順」· docs/LOCAL_STAGING.md',
     ],
   },
 ] as const
@@ -218,7 +236,7 @@ export function UsageGuidePanel() {
           position: 'fixed' as const,
           left: pos.x,
           top: pos.y,
-          width: 420,
+          width: 780,
           zIndex: 40,
           margin: 0,
         } as const)
@@ -310,13 +328,30 @@ export function UsageGuidePanel() {
               <strong>最短・安全な進め方</strong>
             </div>
             <p>
-              手作業のコマンド列より、<code>swell pipeline</code>（解析〜レポート一括）または{' '}
-              <code>intake pipeline</code> → <code>agent run</code> → Claude Code → <code>agent resume</code>{' '}
-              の方がミスが少なく、品質ゲートも飛ばしにくいです。リモート WP の前にローカル Docker staging
-              で確認してください。
+              手作業のコマンド列より、<code>swell pipeline</code>（解析〜<strong>deploy staging 自動反映</strong>
+              〜Playwright〜レポート一括）または <code>intake pipeline</code> → <code>agent run</code> → Claude Code →{' '}
+              <code>agent resume</code> の方がミスが少なく、品質ゲートも飛ばしにくいです。リモート WP の前にローカル Docker
+              staging（<code>localhost:8088</code>）で確認してください。
             </p>
             <ul className="usage-guide-items">
               {recommendedFlow.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="usage-guide-featured" aria-label="WP自動反映">
+            <div className="usage-guide-featured-head">
+              <span className="usage-guide-featured-badge">WP Deploy</span>
+              <strong>SWELL → WordPress 自動反映</strong>
+            </div>
+            <p>
+              <code>swell pipeline</code> は <code>--skip-deploy</code> を付けない限り、変換後に{' '}
+              <code>deploy staging</code> で <code>themes/swell-child</code> へ自動配置します。Railway の{' '}
+              <code>/swell</code> だけでは実サーバーへは届きません（手順 9b）。
+            </p>
+            <ul className="usage-guide-items">
+              {wpAutoReflect.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
@@ -344,7 +379,7 @@ export function UsageGuidePanel() {
           </ol>
 
           <p className="usage-guide-footer">
-            ▼▲ で開閉 · ヘッダーをドラッグして移動 · SWELL は /swell · WP反映は手順 9b · docs/SWELL.md · テストは /tests
+            ▼▲ で開閉 · ドラッグで移動 · SWELL→WP 自動反映は WP Deploy カード / 手順 9b · /swell · docs/SWELL.md · /tests
           </p>
         </div>
       ) : null}

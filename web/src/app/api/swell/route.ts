@@ -7,6 +7,11 @@ import { looksLikeWindowsPath, parsePythonJson, repoRoot, runPython } from '@/li
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+/** Railway HTTP タイムアウト対策（大量 HTML は UI 側でも上限あり） */
+export const maxDuration = 300
+
+const MAX_UPLOAD_FILES = 40
+const MAX_UPLOAD_HTML = 30
 
 export async function GET(req: NextRequest) {
   const session = req.nextUrl.searchParams.get('session')
@@ -101,26 +106,33 @@ async function saveUploads(form: FormData): Promise<{ dir: string; files: string
   const dir = join(root, 'intake', 'uploads', uploadId)
   mkdirSync(dir, { recursive: true })
 
-  const pathHints = form.getAll('paths').map(String).filter(Boolean)
+  const pathHints = form.getAll('paths').map(String)
   const files: string[] = []
-  const entries = form.getAll('files')
   let i = 0
-  for (const entry of entries) {
+  for (const entry of form.getAll('files')) {
     if (typeof entry === 'string') continue
     const file = entry as File
-    const hint = pathHints[i]
-    const rel =
+    const hint = (pathHints[i] || '').trim()
+    i += 1
+    const relRaw =
       hint ||
       (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
       file.name
-    i += 1
-    // strip leading folder name from webkitdirectory (folder/a.html -> a.html or keep nested)
-    const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
-    const relPath = parts.length > 1 ? parts.slice(1).join('/') : parts[0] || file.name
+    const parts = relRaw.replace(/\\/g, '/').split('/').filter(Boolean)
+    // paths ヒントがある場合はそのまま（クライアント側で先頭フォルダ除去済み）
+    let relPath: string
+    if (hint) {
+      relPath = hint.replace(/\\/g, '/')
+    } else if (parts.length > 1) {
+      relPath = parts.slice(1).join('/')
+    } else {
+      relPath = parts[0] || file.name
+    }
+    relPath = relPath.replace(/^(\.\.\/)+/, '').replace(/^\/+/, '')
+    if (!relPath || relPath.includes('..')) continue
     const dest = join(dir, relPath)
     mkdirSync(dirname(dest), { recursive: true })
-    const buf = Buffer.from(await file.arrayBuffer())
-    writeFileSync(dest, buf)
+    writeFileSync(dest, Buffer.from(await file.arrayBuffer()))
     files.push(relPath)
   }
   return { dir, files }
@@ -160,6 +172,20 @@ export async function POST(req: NextRequest) {
       if (!uploaded.files.length) {
         return NextResponse.json(
           { error: 'アップロードされたファイルがありません。HTML（と CSS/JS）を選択してください。' },
+          { status: 400 },
+        )
+      }
+
+      const htmlFiles = uploaded.files.filter((f) => /\.html?$/i.test(f))
+      if (uploaded.files.length > MAX_UPLOAD_FILES || htmlFiles.length > MAX_UPLOAD_HTML) {
+        return NextResponse.json(
+          {
+            error:
+              `Web UI では一度に HTML ${MAX_UPLOAD_HTML} / 合計 ${MAX_UPLOAD_FILES} ファイルまでです` +
+              `（今回: HTML ${htmlFiles.length} / 合計 ${uploaded.files.length}）。\n` +
+              'フォルダを絞るか、サンプル実行を使ってください。大量変換はローカル CLI を推奨します。\n' +
+              '例: python wpaipublish.py swell pipeline --source-dir C:\\test --select "**/*.html"',
+          },
           { status: 400 },
         )
       }

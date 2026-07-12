@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 type HtmlFile = {
   path: string
@@ -79,15 +79,6 @@ export function HtmlSelectPanel() {
   } | null>(null)
   const [mode, setMode] = useState<'upload' | 'sample'>('upload')
 
-  // React は webkitdirectory を無視することがあるため DOM に直接付与
-  useEffect(() => {
-    const el = folderRef.current
-    if (!el) return
-    el.setAttribute('webkitdirectory', '')
-    el.setAttribute('directory', '')
-    el.setAttribute('multiple', '')
-  }, [])
-
   function applyFileList(list: File[], label: string) {
     setUploadFiles(list)
     setMode('upload')
@@ -102,7 +93,7 @@ export function HtmlSelectPanel() {
         `HTML が見つかりませんでした（読み込み ${list.length} ファイル）。` +
           (otherExts.length
             ? ` 検出した拡張子: ${otherExts.join(', ')}。.html / .htm を含むフォルダを選んでください。`
-            : ' 空のフォルダか、ブラウザがフォルダ選択に対応していない可能性があります。「HTMLファイルを選択」も試してください。'),
+            : ' 空のフォルダか、ファイルが選択されていません。「HTMLファイルを選択」も試してください。'),
       )
       return
     }
@@ -111,15 +102,17 @@ export function HtmlSelectPanel() {
 
   function onFolderChange(e: React.ChangeEvent<HTMLInputElement>) {
     const list = e.target.files ? Array.from(e.target.files) : []
+    e.target.value = ''
     if (!list.length) {
-      setError('フォルダが選択されていません')
+      setError('ファイルが選択されていません')
       return
     }
-    applyFileList(list, 'フォルダ')
+    applyFileList(list, 'フォルダ内ファイル')
   }
 
   function onFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
     const list = e.target.files ? Array.from(e.target.files) : []
+    e.target.value = ''
     if (!list.length) {
       setError('ファイルが選択されていません')
       return
@@ -228,7 +221,7 @@ export function HtmlSelectPanel() {
             disabled={loading}
             onClick={() => folderRef.current?.click()}
           >
-            フォルダを選択
+            フォルダ内のファイルを選択
           </button>
           <button
             type="button"
@@ -242,10 +235,12 @@ export function HtmlSelectPanel() {
             サンプル一覧
           </button>
         </div>
+        {/* webkitdirectory は使わない（ダイアログにフォルダしか出ない） */}
         <input
           ref={folderRef}
           type="file"
           multiple
+          accept=".html,.htm,.css,.js,.mjs,.json,text/html,text/css,text/javascript,application/json"
           style={{ display: 'none' }}
           onChange={onFolderChange}
         />
@@ -258,7 +253,8 @@ export function HtmlSelectPanel() {
           onChange={onFilesChange}
         />
         <p className="page-lead" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem' }}>
-          読み込み: {uploadFiles.length} ファイル · 表示中 HTML: {files.length} 件
+          フォルダへ移動してファイルを表示・選択（Ctrl+A でまとめて可）。読み込み: {uploadFiles.length}{' '}
+          ファイル · 表示中 HTML: {files.length} 件
         </p>
       </div>
 

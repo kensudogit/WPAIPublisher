@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 
 type PipelineResult = {
   session_id?: string
@@ -49,9 +49,34 @@ function relativeUploadPath(file: File): string {
   return parts.slice(1).join('/')
 }
 
+/** Railway Web UI の実用上限（タイムアウト・ボディサイズ対策） */
+const MAX_UPLOAD_FILES = 40
+const MAX_UPLOAD_HTML = 30
+
+async function readApiJson(res: Response): Promise<Record<string, unknown>> {
+  const text = await res.text()
+  if (!text) {
+    throw new Error(
+      res.ok
+        ? 'サーバーから空の応答が返りました'
+        : `リクエスト失敗 (${res.status})。ファイル数・サイズを減らして再試行してください。`,
+    )
+  }
+  try {
+    return JSON.parse(text) as Record<string, unknown>
+  } catch {
+    const snippet = text.replace(/\s+/g, ' ').slice(0, 180)
+    throw new Error(
+      `サーバーエラー (${res.status}): JSON 以外の応答です。` +
+        (snippet ? ` ${snippet}` : '') +
+        ' HTML を 30 件以下に絞るか「サンプル実行」を試してください。',
+    )
+  }
+}
+
 export function SwellPipelinePanel() {
-  const folderRef = useRef<HTMLInputElement>(null)
-  const filesRef = useRef<HTMLInputElement>(null)
+  const folderFilesRef = useRef<HTMLInputElement>(null)
+  const htmlFilesRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
   const [htmlCount, setHtmlCount] = useState(0)
   const [select, setSelect] = useState('**/*.html')
@@ -62,13 +87,11 @@ export function SwellPipelinePanel() {
   const [result, setResult] = useState<PipelineResult | null>(null)
   const [report, setReport] = useState<ReportPayload | null>(null)
 
-  useEffect(() => {
-    const el = folderRef.current
-    if (!el) return
-    el.setAttribute('webkitdirectory', '')
-    el.setAttribute('directory', '')
-    el.setAttribute('multiple', '')
-  }, [])
+  const fileEntries = files.map((f) => ({
+    file: f,
+    path: relativeUploadPath(f),
+    html: isHtmlName(f.name),
+  }))
 
   function applyFiles(list: File[]) {
     setFiles(list)
@@ -82,7 +105,21 @@ export function SwellPipelinePanel() {
       setError(
         `HTML が見つかりません（${list.length} ファイル読み込み）。.html / .htm を含むフォルダかファイルを選んでください。`,
       )
+      return
     }
+    if (count > MAX_UPLOAD_HTML || list.length > MAX_UPLOAD_FILES) {
+      setError(
+        `読み込み過多: HTML ${count} / 合計 ${list.length} ファイル。` +
+          ` Web UI では HTML ${MAX_UPLOAD_HTML}・合計 ${MAX_UPLOAD_FILES} までです。` +
+          ' サブフォルダを選ぶか、少数の HTML だけ選んでください。大量はローカル CLI を使います。',
+      )
+    }
+  }
+
+  function onPickerChange(e: ChangeEvent<HTMLInputElement>) {
+    applyFiles(e.target.files ? Array.from(e.target.files) : [])
+    // 同じフォルダを再選択できるようにクリア
+    e.target.value = ''
   }
 
   async function fetchReport(session: string, regenerate: boolean): Promise<ReportPayload> {
@@ -96,29 +133,30 @@ export function SwellPipelinePanel() {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     })
-    const data = await r.json()
+    const data = await readApiJson(r)
     if (!r.ok) {
-      throw new Error(data.error || `レポート取得に失敗しました (${r.status})`)
+      throw new Error(String(data.error || `レポート取得に失敗しました (${r.status})`))
     }
     return data as ReportPayload
   }
 
+  function applyPipelineResult(data: Record<string, unknown>) {
+    setResult(data as PipelineResult)
+    if (data.ok === false && data.error) setError(String(data.error))
+    else if (data.warning) setError(String(data.warning))
+    else if (Array.isArray(data.validation_errors) && data.validation_errors.length) {
+      setError('検証警告: ' + data.validation_errors.join('; '))
+    }
+  }
+
   async function runWithFormData(form: FormData) {
-    setRunning(true)
-    setError('')
-    setInfo('')
-    setResult(null)
-    setReport(null)
+    setInfo('アップロード中…（完了までページを閉じないでください）')
     try {
       const res = await fetch('/api/swell', { method: 'POST', body: form })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'pipeline failed')
-      setResult(data)
-      if (data.ok === false && data.error) setError(String(data.error))
-      else if (data.warning) setError(String(data.warning))
-      else if (Array.isArray(data.validation_errors) && data.validation_errors.length) {
-        setError('検証警告: ' + data.validation_errors.join('; '))
-      }
+      const data = await readApiJson(res)
+      if (!res.ok) throw new Error(String(data.error || 'pipeline failed'))
+      setInfo('')
+      applyPipelineResult(data)
       if (data.session_id) {
         try {
           setReport(await fetchReport(String(data.session_id), false))
@@ -128,6 +166,7 @@ export function SwellPipelinePanel() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      setInfo('')
     } finally {
       setRunning(false)
     }
@@ -142,6 +181,24 @@ export function SwellPipelinePanel() {
       setError('HTML ファイルが含まれていません')
       return
     }
+    if (htmlCount > MAX_UPLOAD_HTML || files.length > MAX_UPLOAD_FILES) {
+      setError(
+        `ファイルが多すぎます（HTML ${htmlCount} / 合計 ${files.length}）。` +
+          ` 上限は HTML ${MAX_UPLOAD_HTML}・合計 ${MAX_UPLOAD_FILES} です。` +
+          ' 少数に絞るか「サンプル実行」を使ってください。',
+      )
+      return
+    }
+
+    setRunning(true)
+    setError('')
+    setInfo('準備中…')
+    setResult(null)
+    setReport(null)
+
+    // UI を先に更新してから FormData 構築（大量ファイルで固まったように見えないように）
+    await new Promise((r) => setTimeout(r, 0))
+
     const form = new FormData()
     for (const f of files) {
       const rel = relativeUploadPath(f)
@@ -157,7 +214,7 @@ export function SwellPipelinePanel() {
   async function runSample() {
     setRunning(true)
     setError('')
-    setInfo('')
+    setInfo('サンプル実行中…')
     setResult(null)
     setReport(null)
     try {
@@ -171,14 +228,10 @@ export function SwellPipelinePanel() {
           skip_git: true,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'pipeline failed')
-      setResult(data)
-      if (data.ok === false && data.error) setError(String(data.error))
-      else if (data.warning) setError(String(data.warning))
-      else if (Array.isArray(data.validation_errors) && data.validation_errors.length) {
-        setError('検証警告: ' + data.validation_errors.join('; '))
-      }
+      const data = await readApiJson(res)
+      if (!res.ok) throw new Error(String(data.error || 'pipeline failed'))
+      setInfo('')
+      applyPipelineResult(data)
       if (data.session_id) {
         try {
           setReport(await fetchReport(String(data.session_id), false))
@@ -188,6 +241,7 @@ export function SwellPipelinePanel() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      setInfo('')
     } finally {
       setRunning(false)
     }
@@ -220,36 +274,75 @@ export function SwellPipelinePanel() {
     <div className="select-panel">
       <p className="page-lead" style={{ margin: 0, fontSize: '0.9rem' }}>
         Railway では PC の <code>C:\test</code> は使えません。フォルダ／HTML を選ぶか、サンプル実行してください。
+        Web では一度に HTML {MAX_UPLOAD_HTML} 件まで（大量はローカル CLI）。
       </p>
 
       <div className="select-row">
         <label>ファイル選択</label>
         <div className="select-controls" style={{ flexWrap: 'wrap' }}>
-          <button type="button" className="btn" disabled={running} onClick={() => folderRef.current?.click()}>
-            フォルダを選択
+          <button
+            type="button"
+            className="btn"
+            disabled={running}
+            onClick={() => folderFilesRef.current?.click()}
+          >
+            フォルダ内のファイルを選択
           </button>
-          <button type="button" className="btn" disabled={running} onClick={() => filesRef.current?.click()}>
-            HTMLファイルを選択
+          <button
+            type="button"
+            className="btn"
+            disabled={running}
+            onClick={() => htmlFilesRef.current?.click()}
+          >
+            HTMLのみ選択
           </button>
         </div>
+        {/* webkitdirectory は使わない（Windows ではフォルダしか出ず中身が見えない） */}
         <input
-          ref={folderRef}
+          ref={folderFilesRef}
           type="file"
           multiple
+          accept=".html,.htm,.css,.js,.mjs,.json,text/html,text/css,text/javascript,application/json"
           style={{ display: 'none' }}
-          onChange={(e) => applyFiles(e.target.files ? Array.from(e.target.files) : [])}
+          onChange={onPickerChange}
         />
         <input
-          ref={filesRef}
+          ref={htmlFilesRef}
           type="file"
           multiple
           accept=".html,.htm,text/html"
           style={{ display: 'none' }}
-          onChange={(e) => applyFiles(e.target.files ? Array.from(e.target.files) : [])}
+          onChange={onPickerChange}
         />
         <p className="page-lead" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem' }}>
+          <code>C:\test</code> などへ移動し、ファイル一覧から選択（Ctrl+A でまとめて可）。
           読み込み: {files.length} ファイル（HTML {htmlCount}）
+          {htmlCount > MAX_UPLOAD_HTML || files.length > MAX_UPLOAD_FILES
+            ? ` · 上限超過（HTML ${MAX_UPLOAD_HTML} / 合計 ${MAX_UPLOAD_FILES}）`
+            : ''}
         </p>
+        {fileEntries.length > 0 && (
+          <ul className="file-list" role="list" aria-label="選択中のファイル" style={{ marginTop: '0.5rem' }}>
+            {fileEntries.slice(0, 80).map((f) => (
+              <li key={f.path + f.file.size}>
+                <span className="file-meta">
+                  <strong>{f.path}</strong>
+                  <small>
+                    {(f.file.size / 1024).toFixed(1)} KB
+                    {f.html ? ' · HTML' : ''}
+                  </small>
+                </span>
+              </li>
+            ))}
+            {fileEntries.length > 80 ? (
+              <li>
+                <span className="file-meta">
+                  <small>…ほか {fileEntries.length - 80} 件</small>
+                </span>
+              </li>
+            ) : null}
+          </ul>
+        )}
       </div>
 
       <div className="select-row">
@@ -268,7 +361,17 @@ export function SwellPipelinePanel() {
           type="button"
           className="btn btn-primary"
           onClick={() => void runUpload()}
-          disabled={running || !htmlCount}
+          disabled={
+            running ||
+            !htmlCount ||
+            htmlCount > MAX_UPLOAD_HTML ||
+            files.length > MAX_UPLOAD_FILES
+          }
+          title={
+            htmlCount > MAX_UPLOAD_HTML || files.length > MAX_UPLOAD_FILES
+              ? `上限: HTML ${MAX_UPLOAD_HTML} / 合計 ${MAX_UPLOAD_FILES}`
+              : undefined
+          }
         >
           {running ? '実行中…' : 'アップロードして実行'}
         </button>

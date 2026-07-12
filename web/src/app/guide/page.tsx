@@ -11,18 +11,21 @@ export default function GuidePage() {
             右のパネルはドラッグで移動・開閉できる利用手順です。セットアップからローカルステージング、本番デプロイまでの流れをまとめています。
           </p>
           <p>
-            <strong>推奨:</strong> SWELL 向けは <code>swell pipeline</code>（解析〜デプロイ〜Playwright〜レポート一括）。
-            汎用 WP 変換は <code>intake pipeline</code> → <code>agent run</code> → Claude Code →{' '}
-            <code>agent resume</code>。リモート WP の前に Docker の <code>localhost:8088</code> で確認してください。
-            手順パネルの「0」「9」「9b」を参照。
+            <strong>推奨:</strong> SWELL 向けは <code>swell pipeline</code>
+            （解析〜<strong>deploy staging で WP 自動反映</strong>〜Playwright〜レポート一括）。汎用 WP 変換は{' '}
+            <code>intake pipeline</code> → <code>agent run</code> → Claude Code → <code>agent resume</code>。
+            リモート WP の前に Docker の <code>localhost:8088</code> で確認してください。手順パネルの「0」「9」「9b」と
+            「WP Deploy」カードを参照。
           </p>
           <p>
             複数 HTML が入ったフォルダから処理対象を選ぶ場合は、ナビの「HTML選択」(<code>/pipeline</code>)、または
             <code>intake list / select / pipeline</code> を使います。手順パネルの「3b」も参照してください。
           </p>
           <p>
-            SWELL 子テーマ変換・変更レポートはナビの「SWELL」(<code>/swell</code>)。成果物を WordPress へ反映する手順は
-            手順パネルの「9b」と <code>docs/SWELL.md</code>（WordPress への反映手順）を参照してください。
+            SWELL 子テーマ変換はナビの「SWELL」(<code>/swell</code>)。WordPress への<strong>自動反映</strong>は:
+            Docker staging 起動 → <code>bootstrap_wp.sh</code> → <code>swell pipeline</code>（または{' '}
+            <code>deploy staging</code>）→ <code>staging/wp-content/themes/swell-child/</code>。詳細は手順「9b」と{' '}
+            <code>docs/SWELL.md</code>。
           </p>
           <p>
             WordPress 向け変換（Claude Code 経路）はプロンプトに従うだけでよく、コードの手書きは不要です。
