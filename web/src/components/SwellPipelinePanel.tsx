@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, type ChangeEvent } from 'react'
+import { SessionDownloadButton } from '@/components/SessionDownloadButton'
 
 type PipelineResult = {
   session_id?: string
@@ -400,14 +401,21 @@ export function SwellPipelinePanel() {
             </p>
           )}
           {result.session_id && (
-            <button
-              type="button"
-              className="btn"
-              disabled={running || reloading}
-              onClick={() => void loadReport(result.session_id!)}
-            >
-              {reloading ? '再生成中…' : 'レポート再読込'}
-            </button>
+            <div className="select-controls" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={running || reloading}
+                onClick={() => void loadReport(result.session_id!)}
+              >
+                {reloading ? '再生成中…' : 'レポート再読込'}
+              </button>
+              <SessionDownloadButton
+                sessionId={result.session_id}
+                disabled={running || reloading}
+                label="セッションをダウンロード"
+              />
+            </div>
           )}
         </div>
       )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SessionDownloadButton } from '@/components/SessionDownloadButton'
 
 type Session = {
   id: string
@@ -73,6 +74,7 @@ export function SessionTable() {
             <th>Agent</th>
             <th>Target</th>
             <th>Staging</th>
+            <th>Download</th>
           </tr>
         </thead>
         <tbody>
@@ -92,6 +94,9 @@ export function SessionTable() {
                 ) : (
                   '-'
                 )}
+              </td>
+              <td>
+                <SessionDownloadButton sessionId={s.id} className="btn-ghost" label="ZIP" />
               </td>
             </tr>
           ))}

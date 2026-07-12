@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { SessionDownloadButton } from '@/components/SessionDownloadButton'
 
 type HtmlFile = {
   path: string
@@ -313,6 +314,16 @@ export function HtmlSelectPanel() {
           <p>
             セッション: <code>{result.session_id}</code>
           </p>
+          {result.session_id ? (
+            <p style={{ marginTop: '0.75rem' }}>
+              <SessionDownloadButton
+                sessionId={result.session_id}
+                className="btn btn-primary"
+                label="セッションファイルをダウンロード"
+                disabled={loading}
+              />
+            </p>
+          ) : null}
           {result.next && (
             <ol>
               {result.next.map((step) => (
